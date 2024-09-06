@@ -20,7 +20,7 @@ from flask import Flask
 # Flask 객체 생성
 app = Flask(__name__)
 
-
+#
 # HTTP GETmapping 설정
 @app.route('/')
 def index():  # 매핑 함수
