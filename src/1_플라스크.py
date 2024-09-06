@@ -48,3 +48,4 @@ Press CTRL+C to quit
 127.0.0.1 - - [23/Aug/2024 10:16:49] "GET / HTTP/1.1" 200 -
 127.0.0.1 - - [23/Aug/2024 10:16:49] "GET /favicon.ico HTTP/1.1" 404 -
 """
+"test"
