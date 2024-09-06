@@ -14,6 +14,8 @@
         4) Flaks 프레임워크 실행
             if __name__ == "__main__":
                 app.run()
+
+                45245
 """
 # Flask 모듈 가져오기
 from flask import Flask
