@@ -2,6 +2,7 @@
 
 # 마우스로 클릭 > 빨간 전구 아이콘 > 패키지 ~~~ 설치
 from flask import Flask
+from flask_cors import CORS
 from selenium import webdriver
 import webdriver_manager
 from bs4 import BeautifulSoup
