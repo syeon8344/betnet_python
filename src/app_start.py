@@ -1,7 +1,5 @@
 from flask import Flask
 from flask_cors import CORS
-import threading
-import sys
 import os
 import datetime
 from KBO_crawl import do_crawl  # KBO_crawl.py에서 전체 크롤링 함수
