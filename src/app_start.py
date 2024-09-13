@@ -1,90 +1,64 @@
-# Flask 모듈 가져오기
 from flask import Flask
 from flask_cors import CORS
 import threading
-import time
-import csv
-from datetime import datetime
-import KBO_crawl
+import sys
+import os
+import datetime
+from KBO_crawl import do_crawl  # KBO_crawl.py에서 전체 크롤링 함수
+from apscheduler.schedulers.background import BackgroundScheduler  # 작업 스케줄러(오전 6시 크롤링 작업)
+from apscheduler.triggers.cron import CronTrigger  # 매일 특정 시간에 작업을 수행하게 하는 'cron' 트리거
 
 app = Flask(__name__)  # Flask 객체 생성
 CORS(app)
 from routing import *  # app 활성화 이후 app.route 목록 import
 
-# 상태 파일 경로
-DAILY_CHECK = 'csv/daily_check.csv'
+# 상태 파일 경로: 마지막으로 앱이 실행된 시간 기록
+CRAWL_LATEST = 'crawl_csv/crawl_latest.csv'
 
-# TODO: 플라스크 스케줄링 API로 오전 6시에 크롤링 함수 실행
-# # CSV 파일에서 시간 값을 읽어오는 함수
-# def read_time_from_csv(file_path):
-#     with open(file_path, 'r') as file:
-#         reader = csv.reader(file)
-#         # 첫 번째 행에서 시간 값을 읽어온다고 가정
-#         for row in reader:
-#             return datetime.fromisoformat(row[0])
-#
-#
-# # 현재 시간을 읽어와서 비교하고 특정 함수를 실행하는 함수
-# def check_time(file_path):
-#     target_time = read_time_from_csv(file_path)
-#     while True:
-#         now = datetime.now()
-#         if now >= target_time:
-#             print("Time reached!")
-#             # 특정 함수 실행
-#             specific_function()
-#             # 목표 시간이 지나면 새로운 목표 시간을 CSV에서 읽어옵니다.
-#             target_time = read_time_from_csv(file_path)
-#         time.sleep(5)  # 5초 대기
-#
-#
-# # 특정 함수를 정의합니다.
-# def specific_function():
-#     print("Executing specific function!")
-#
-#
-# # 1) 오전 6시 이후에 파일 초기화
-# def reset_check_if_needed():
-#     now = datetime.datetime.now()
-#     if now.hour < 6:  # 오전 6시 이전에는 초기화하지 않음
-#         return
-#     if os.path.exists(DAILY_CHECK):
-#         df = pd.read_csv(DAILY_CHECK)
-#         if not df.empty:
-#             last_run_date = pd.to_datetime(df.iloc[-1]['date']).date()
-#             if last_run_date < datetime.date.today():
-#                 # 오늘이 아닌 날짜가 마지막 실행일인 경우 상태 초기화
-#                 df = pd.DataFrame(columns=['date'])
-#                 df.to_csv(DAILY_CHECK, index=False)
-#
-#
-# # 2) 오늘 작업이 실행되었는지 확인
-# def daily_check():
-#     if not os.path.exists(DAILY_CHECK):
-#         return False
-#     df = pd.read_csv(DAILY_CHECK)
-#     if df.empty:
-#         return False
-#     today = datetime.date.today()
-#     last_run_date = pd.to_datetime(df.iloc[-1]['date']).date()
-#     return last_run_date == today
-#
-#
-# # 3) 작업 모두 종료 후 시간 기록
-# def record_time():
-#     today = datetime.datetime.now()
-#     if os.path.exists(DAILY_CHECK):
-#         df = pd.read_csv(DAILY_CHECK)
-#     else:
-#         df = pd.DataFrame(columns=['date'])
-#     df = pd.concat([df, pd.DataFrame([{'date': today}])], ignore_index=True)
-#     df.to_csv(DAILY_CHECK, index=False)
+"""
+    크롤링 스케줄링: 1. 서버 실행 중 오전 6시가 되었을 시 크롤링 실행 및 날짜와 시간 저장
+                   2. 오전 6시 이후 서버 실행시 오늘 크롤링 여부 체크 및 크롤링 실행
+"""
+# 1. 스케줄러 객체, 매일 오전 6시가 되면 크롤링 시행
+scheduler = BackgroundScheduler()
+scheduler.add_job(do_crawl, trigger=CronTrigger(hour=6, minute=0))  # 매일 오전 6시 정각에 do_crawl 실행
+
+
+# 2. 서버 실행시 6시 이후면 크롤링 여부 확인
+def check_crawl_time():
+    now = datetime.datetime.now()
+    if now.hour < 6:  # 오전 6시 이전에는 확인하지 않음
+        print("서버가 오전 6시 이전에 실행되었으므로 스케줄링된 크롤링을 기다립니다.")
+        return
+    if not os.path.exists(CRAWL_LATEST):  # 파일이 존재하지 않으면 전체 크롤링 후 파일 생성
+        print("크롤링 날짜 파일이 없으므로 크롤링 수행 후 새 파일을 생성합니다.")
+        do_crawl(include_old_data=True)
+        return
+    with open(CRAWL_LATEST, 'r') as file:  # 파일에서 마지막 크롤링 날짜 읽고 비교하기
+        # 첫 번째 줄 (KBO_crawl의 record_time(): 날짜만 기록)
+        line = file.readline().strip()
+        if not line:  # 크롤링 중 오류 등으로 인해 파일이 있지만 비어 있는 경우 크롤링 재시도
+            do_crawl(include_old_data=True)
+            return
+        # 파일에서 읽어들인 날짜 문자열을 datetime 객체로 변환
+        latest_crawl_date = datetime.datetime.strptime(line, '%Y-%m-%d').date()
+        today_date = now.date()
+        # 오늘 날짜와 마지막 크롤링 날짜 비교
+        if today_date > latest_crawl_date:
+            print("오늘 크롤링이 실행되지 않았으므로 크롤링 수행 후 날짜를 기록합니다.")
+            do_crawl(include_old_data=False)
+        else:
+            print("오늘의 크롤링이 이미 실행되었습니다.")
 
 
 # Flask 웹 실행
 if __name__ == "__main__":
-    app.run(debug=True)
-
-# 콘솔 확인
-# Flask port: 5000 -> http://localhost:5000
-# 테스트 1: 크롬 주소창, 테스트 2: Talend API, 테스트 3: JS AJAX
+    scheduler.start()
+    print("크롤링 스케줄러 시작, 오전 6시에 크롤링을 자동으로 실행합니다.")
+    check_crawl_time()
+    # 플라스크 서버 실행 app.run()은 블로킹 함수이므로 서버 종료시까지 코드가 진행되지 않는다 -> 스케줄러도 계속 실행중
+    # 블로킹 함수: 프로그램 실행 중 특정 함수 또는 작업이 완료될 때까지 코드의 흐름을 멈추게 하는 호출
+    try:
+        app.run()
+    except KeyboardInterrupt:  # Ctrl+C로 서버 종료 / PyCharm: 정지버튼
+        scheduler.shutdown(wait=False)  # 서버 중단 시 스케줄러 종료
