@@ -6,24 +6,24 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
+import csv
+import datetime
 import time
 import pandas as pd
-import os
-import datetime
 
-# webdriver 객체 생성 후 크롤링 작업들 실행
-wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
+# 상태 파일 경로: 마지막으로 앱이 실행된 시간 기록
+CRAWL_LATEST = 'crawl_csv/crawl_latest.csv'
 
 
 # 페이지 로드 상태 확인: 웹페이지 로드 오류시 CSV 파일 수정하지 않고 False 반환하도록
-def is_page_loaded(web_driver):
-    return web_driver.execute_script("return document.readyState;") == "complete"
+def is_page_loaded(wd: webdriver.chrome):
+    return wd.execute_script("return document.readyState;") == "complete"
 
 
 # [1] 팀 단위 타자 성적: 타율순으로 정렬, include_old_data=True시 2015년 데이터부터 크롤링
-def get_team_hitter_table(include_old_data=False):
-
+def get_team_hitter_table(wd: webdriver.chrome, include_old_data=False):
     # 년도를 매개변수로 받아 크롤링
     def table_crawl(year=2024):
         df_table_1 = None
@@ -38,7 +38,7 @@ def get_team_hitter_table(include_old_data=False):
                 WebDriverWait(wd, 10).until(is_page_loaded)
             except Exception as e:
                 print(f"웹 페이지 접속시 오류 발생: {e}")
-                return False
+                raise Exception
             # 연도 선택
             year_select = Select(
                 wd.find_element(By.XPATH, '//*[@id="cphContents_cphContents_cphContents_ddlSeason_ddlSeason"]'))
@@ -62,7 +62,7 @@ def get_team_hitter_table(include_old_data=False):
             rows = table.find_all('tr')
             for row in rows:
                 tds = row.find_all('td')
-                print(tds)
+                # print(tds)
                 if tds:
                     # 팀 정보만 불러와서 data 리스트에 추가
                     # 합계 줄 첫번째 td는 숫자가 아니므로('합계') 예외발생 -> 루프 탈출처리
@@ -82,20 +82,20 @@ def get_team_hitter_table(include_old_data=False):
         df_hitter = pd.concat([df_table_1, df_table_2], axis=1)
         # print(df_hitter)
         # 데이터프레임 객체를 CSV 파일로 저장
-        df_hitter.to_csv(f"csv/팀기록_타자_{year}.csv", mode='w', encoding='utf-8', index=False)
-        # print(pd.read_csv("csv/team_hitter_crawl.csv", encoding='utf-8'))  # CSV 테스트
+        df_hitter.to_csv(f"crawl_csv/hitter/팀기록_타자_{year}.csv", mode='w', encoding='utf-8', index=False)
 
     if include_old_data:
         # 불린 True값일 시 2015년부터 2024년까지의 데이터 크롤링
         for i in range(2015, 2025):
             table_crawl(i)
+        print("2015년부터의 팀 타자 기록 크롤링 성공.")
     else:
         table_crawl()
+        print("팀 타자 기록 크롤링 성공.")
 
 
 # [2] 팀 단위 투수 평균자책점순 DataFrame 생성 및 CSV, include_old_data=True시 2015년 데이터부터 크롤링
-def get_team_pitcher_table(include_old_data=False):
-
+def get_team_pitcher_table(wd: webdriver.chrome, include_old_data=False):
     # 년도를 매개변수로 받아 크롤링
     def table_crawl(year=2024):
         df_table_1 = None
@@ -110,7 +110,7 @@ def get_team_pitcher_table(include_old_data=False):
                 WebDriverWait(wd, 10).until(is_page_loaded)
             except Exception as e:
                 print(f"웹 페이지 접속시 오류 발생: {e}")
-                return False
+                raise Exception
             # 연도 선택
             year_select = Select(
                 wd.find_element(By.XPATH, '//*[@id="cphContents_cphContents_cphContents_ddlSeason_ddlSeason"]'))
@@ -154,20 +154,20 @@ def get_team_pitcher_table(include_old_data=False):
         df_pitcher = pd.concat([df_table_1, df_table_2], axis=1)
         # print(df_pitcher)
         # DataFrame 객체를 CSV 파일로 저장
-        df_pitcher.to_csv(f"csv/팀기록_투수_{year}.csv", mode='w', encoding='utf-8', index=False)
-        # print(pd.read_csv("csv/team_pitcher_crawl.csv", encoding='utf-8'))  # CSV 테스트
+        df_pitcher.to_csv(f"crawl_csv/pitcher/팀기록_투수_{year}.csv", mode='w', encoding='utf-8', index=False)
 
     if include_old_data:
         # 불린 True값일 시 2015년부터 2024년까지의 데이터 크롤링
         for i in range(2015, 2025):
             table_crawl(i)
+        print("2015년부터의 팀 투수 기록 크롤링 성공.")
     else:
         table_crawl()
+        print("팀 투수 기록 크롤링 성공.")
 
 
 # [2] 팀 단위 주루 도루허용순 DataFrame 생성 및 CSV, include_old_data=True시 2015년 데이터부터 크롤링
-def get_team_runner_table(include_old_data=False):
-
+def get_team_runner_table(wd: webdriver.chrome, include_old_data=False):
     # 년도를 매개변수로 받아 크롤링
     def table_crawl(year=2024):
         # 웹 페이지 URL
@@ -179,7 +179,7 @@ def get_team_runner_table(include_old_data=False):
             WebDriverWait(wd, 10).until(is_page_loaded)
         except Exception as e:
             print(f"웹 페이지 접속시 오류 발생: {e}")
-            return False
+            raise Exception
         # 연도 선택
         year_select = Select(
             wd.find_element(By.XPATH, '//*[@id="cphContents_cphContents_cphContents_ddlSeason_ddlSeason"]'))
@@ -216,20 +216,21 @@ def get_team_runner_table(include_old_data=False):
         df_runner = pd.DataFrame(data, columns=header, index=None)
         # print(df_runner)
         # DataFrame 객체를 CSV 파일로 저장
-        df_runner.to_csv(f"csv/팀기록_주루_{year}.csv", mode='w', encoding='utf-8', index=False)
-        # print(pd.read_csv("csv/team_runner_crawl.csv", encoding='utf-8'))  # CSV 테스트
+        df_runner.to_csv(f"crawl_csv/runner/팀기록_주루_{year}.csv", mode='w', encoding='utf-8', index=False)
 
     if include_old_data:
         # 불린 True값일 시 2015년부터 2024년까지의 데이터 크롤링
         for i in range(2015, 2025):
             table_crawl(i)
+        print("2015년부터의 팀 주루 기록 크롤링 성공.")
     else:
         table_crawl()
+        print("팀 주루 기록 크롤링 성공.")
 
 
 # 매일 경기 일정 및 선발투수 정보: KBO > 일정/결과 > 게임센터
 # -> 웹사이트에 출력용
-def get_daily_data():
+def get_daily_data(wd: webdriver.chrome):
     # 1. 웹페이지 연결
     daily_url = "https://www.koreabaseball.com/Schedule/GameCenter/Main.aspx"
     try:
@@ -238,7 +239,7 @@ def get_daily_data():
         WebDriverWait(wd, 10).until(is_page_loaded)
     except Exception as e:
         print(f"웹 페이지 접속시 오류 발생: {e}")
-        return False
+        raise Exception
     time.sleep(1)
     # 2. 날짜 가져오기
     date_string = wd.find_element(By.XPATH, '//*[@id="lblGameDate"]').text
@@ -248,8 +249,8 @@ def get_daily_data():
     # print(len(num))  # 2024-09-06, (경기수) 4 출력
     # 데이터프레임 열 이름 목록
     columns_pitcher = ['일자', '홈/어웨이', '팀명', '선발투수', '시즌평균자책점', '시즌WAR', '시즌경기', '시즌선발평균이닝', '시즌QS', '시즌WHIP',
-               '홈어웨이평균자책점', '홈어웨이경기', '홈어웨이선발평균이닝', '홈어웨이QS', '홈어웨이WHIP',
-               '맞대결평균자책점', '맞대결경기', '맞대결선발평균이닝', '맞대결QS', '맞대결WHIP']
+                       '홈어웨이평균자책점', '홈어웨이경기', '홈어웨이선발평균이닝', '홈어웨이QS', '홈어웨이WHIP',
+                       '맞대결평균자책점', '맞대결경기', '맞대결선발평균이닝', '맞대결QS', '맞대결WHIP']
     columns_team = ['일자', '홈/어웨이', '팀명', '시즌평균자책점', '시즌타율', '시즌평균득점', '시즌평균실점', '홈어웨이평균자책점',
                     '홈어웨이시즌타율', '홈어웨이평균득점', '홈어웨이평균실점', '맞대결평균자책점', '맞대결타율', '맞대결평균득점',
                     '맞대결평균실점']
@@ -266,8 +267,7 @@ def get_daily_data():
             # data: 평균자책점, WAR, 경기, 선발평균이닝, QS, WHIP
             season_away_pitcher_name = trs[0].find_element(By.CLASS_NAME, 'name').text
             season_away_pitcher_data = [td.text for td in trs[0].find_elements(By.TAG_NAME, 'td')[1:]]
-        except IndexError as e:
-            print(f"취소된 경기 일정이 존재합니다. 다음 경기목록을 가져옵니다: {e}")
+        except IndexError as e:  # 취소된 경기는 프리뷰 테이블이 나오지 않아 IndexError 발생하므로 continue
             continue
         # 시즌 홈 정보
         # data: 평균자책점, WAR, 경기, 선발평균이닝, QS, WHIP
@@ -326,19 +326,25 @@ def get_daily_data():
         data_team.append(team_data_home)
     # li 요소 순환 완료 후 완성된 데이터프레임 생성 및 CSV 저장
     df_pitcher = pd.DataFrame(data_pitcher, columns=columns_pitcher)
-    df_pitcher.to_csv("csv/일일경기선발투수정보.csv", index=False, encoding="utf-8")
+    df_pitcher.to_csv("crawl_csv/일일경기선발투수정보.csv", index=False, encoding="utf-8")
     df_team = pd.DataFrame(data_team, columns=columns_team)
-    df_team.to_csv("csv/일일경기팀정보.csv", index=False, encoding="utf-8")
+    df_team.to_csv("crawl_csv/일일경기팀정보.csv", index=False, encoding="utf-8")
+    print("일일 경기 정보 크롤링 성공.")
 
 
 # 월간 스케줄표: 매일 갱신하면 매일 업데이트된 경기 결과도 가져올 수 있다
-def get_monthly_schedule():
+def get_monthly_schedule(wd: webdriver.chrome):
     # 다른 연도 및 월 데이터 크롤링시 매개변수: cur_year=2024, cur_month_str="09"
 
     monthly_url = "https://www.koreabaseball.com/Schedule/Schedule.aspx"
-    wd.get(monthly_url)
+    try:
+        wd.get(monthly_url)
+        # 페이지가 완전히 로드될 때까지 10초 기다리기
+        WebDriverWait(wd, 10).until(is_page_loaded)
+    except Exception as e:
+        print(f"웹 페이지 접속시 오류 발생: {e}")
+        raise Exception
     time.sleep(1)
-
     # 연도 및 월 선택칸은 <select>
     year_select = Select(wd.find_element(By.ID, 'ddlYear'))
     selected_year = year_select.first_selected_option.text
@@ -389,19 +395,47 @@ def get_monthly_schedule():
     # print(df_monthly_schedule)
 
     # CSV 파일로 저장
-    df_monthly_schedule.to_csv(f'csv/월간경기일정{date}.csv', index=False, encoding="utf-8")
+    df_monthly_schedule.to_csv(f'crawl_csv/월간경기일정{date}.csv', index=False, encoding="utf-8")
+    print("월간 경기 일정 크롤링 성공.")
 
 
-def main(include_old_data=False):
-    # 크롤링 작업들 실행
-    get_team_hitter_table(include_old_data)
-    get_team_pitcher_table(include_old_data)
-    get_team_runner_table(include_old_data)
-    get_daily_data()
-    get_monthly_schedule()
-    wd.quit()  # 크롤링 종료 후 웹드라이버 닫기
+# 작업 모두 종료 후 날짜 기록
+def record_time():
+    with open(CRAWL_LATEST, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([datetime.datetime.now().date()])
+        print("크롤링 날짜 입력 성공.")
+
+
+def do_crawl(include_old_data=False):
+    print("크롤링 작업을 시작합니다.")
+    # webdriver 객체 생성
+    options = Options()  # 웹드라이버 설정
+    options.add_argument("--headless")  # 브라우저 GUI를 표시하지 않음
+    options.add_argument("--no-sandbox")  # 보안 샌드박스 비활성화
+    wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)
+    try:
+        # 크롤링 작업들 실행
+        get_team_hitter_table(wd, include_old_data)
+        get_team_pitcher_table(wd, include_old_data)
+        get_team_runner_table(wd, include_old_data)
+        get_daily_data(wd)
+        get_monthly_schedule(wd)
+        record_time()
+        print("크롤링 작업 성공.")
+    except Exception:  # 웹페이지 로드 오류 (서버 닫힘 등으로 인해)
+        print("크롤링 작업이 실패했습니다. 다시 시도해 주세요.")
+    finally:
+        wd.quit()  # 크롤링 종료 후 웹드라이버 닫기
 
 
 if __name__ == "__main__":
-    main(include_old_data=True)
+    # 파일 직접 실행시 실행되는 부분
+    # webdriver 객체 생성
+    options = Options()  # 웹드라이버 설정
+    options.add_argument("--headless")  # 브라우저 GUI를 표시하지 않음
+    options.add_argument("--no-sandbox")  # 보안 샌드박스 비활성화
+    wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
+    # include_old_data=True일 시 2015년도 팀 타자/투수/주루 데이터부터 크롤링
+    do_crawl(include_old_data=False)
     wd.quit()
