@@ -332,9 +332,13 @@ def get_daily_data(wd: webdriver.chrome):
     print("일일 경기 정보 크롤링 성공.")
 
 
-# 월간 스케줄표: 매일 갱신하면 매일 업데이트된 경기 결과도 가져올 수 있다
+# 월간 스케줄표: 매일 갱신하면 매일 업데이트된 경기 결과도 가져올 수 있다.
+"""
+    인덱스 문제: 우천 등으로 경기가 취소되는 경우 새로운 경기가 나중에 추가되면 미래 경기에 미리 배팅할 때 인덱스가 깨진다.
+    -> 경기 일정이 월마다 미리 등록되어 있으므로 취소된 경기가 나중에 일정표에 추가되면 데이터프레임 맨 끝으로 보내 인덱스 유지
+"""
 def get_monthly_schedule(wd: webdriver.chrome):
-    # 다른 연도 및 월 데이터 크롤링시 매개변수: cur_year=2024, cur_month_str="09"
+    # 다른 연도 및 월 데이터 크롤링시 매개변수 추가: cur_year=2024, cur_month_str="09"
 
     monthly_url = "https://www.koreabaseball.com/Schedule/Schedule.aspx"
     try:
