@@ -24,7 +24,7 @@ def is_page_loaded(wd: webdriver.chrome):
 
 # [1] 팀 단위 타자 성적: 타율순으로 정렬, include_old_data=True시 2015년 데이터부터 크롤링
 def get_team_hitter_table(wd: webdriver.chrome, include_old_data=False):
-    # 년도를 매개변수로 받아 크롤링
+    # 연도를 매개변수로 받아 크롤링
     def table_crawl(year=2024):
         df_table_1 = None
         df_table_2 = None
@@ -96,7 +96,7 @@ def get_team_hitter_table(wd: webdriver.chrome, include_old_data=False):
 
 # [2] 팀 단위 투수 평균자책점순 DataFrame 생성 및 CSV, include_old_data=True시 2015년 데이터부터 크롤링
 def get_team_pitcher_table(wd: webdriver.chrome, include_old_data=False):
-    # 년도를 매개변수로 받아 크롤링
+    # 연도를 매개변수로 받아 크롤링
     def table_crawl(year=2024):
         df_table_1 = None
         df_table_2 = None
@@ -168,7 +168,7 @@ def get_team_pitcher_table(wd: webdriver.chrome, include_old_data=False):
 
 # [2] 팀 단위 주루 도루허용순 DataFrame 생성 및 CSV, include_old_data=True시 2015년 데이터부터 크롤링
 def get_team_runner_table(wd: webdriver.chrome, include_old_data=False):
-    # 년도를 매개변수로 받아 크롤링
+    # 연도를 매개변수로 받아 크롤링
     def table_crawl(year=2024):
         # 웹 페이지 URL
         url_runner = f'https://www.koreabaseball.com/Record/Team/Runner/Basic.aspx'
@@ -337,6 +337,7 @@ def get_daily_data(wd: webdriver.chrome):
     인덱스 문제: 우천 등으로 경기가 취소되는 경우 새로운 경기가 나중에 추가되면 미래 경기에 미리 배팅할 때 인덱스가 깨진다.
     -> 경기 일정이 월마다 미리 등록되어 있으므로 취소된 경기가 나중에 일정표에 추가되면 데이터프레임 맨 끝으로 보내 인덱스 유지
 """
+# TODO: 승/패 확률을 미리 DataFrame에 포함해서 저장하기?
 def get_monthly_schedule(wd: webdriver.chrome):
     # 다른 연도 및 월 데이터 크롤링시 매개변수 추가: cur_year=2024, cur_month_str="09"
 
@@ -368,6 +369,8 @@ def get_monthly_schedule(wd: webdriver.chrome):
     for tr in monthly_table:  # 테이블 행 (날짜는 각 날짜 맨 처음 행에서만 나온다)
         # print(tr)
         tds = tr.select('td')
+        # print(tds)
+        match_state = tds[-1].string
         for td in tds:  # 행마다의 각 열 정보 쪼개기
             # print(td)
             try:
@@ -393,14 +396,82 @@ def get_monthly_schedule(wd: webdriver.chrome):
                 continue
         # 각 tr 처리 후 추출된 데이터를 data 리스트에 dict()로 추가
         data.append({'월': month, '일': day, '시작시간': hour, '어웨이팀명': away_team, '홈팀명': home_team,
-                     '어웨이점수': away_score, '홈점수': home_score})
+                     '어웨이점수': away_score, '홈점수': home_score, '비고': match_state})
         # print(data)
     df_monthly_schedule = pd.DataFrame(data)
     # print(df_monthly_schedule)
 
-    # CSV 파일로 저장
-    df_monthly_schedule.to_csv(f'crawl_csv/월간경기일정{date}.csv', index=False, encoding="utf-8")
+    # 우천 취소 경기가 있어도 기존 경기들 인덱스가 꼬이지 않도록 설정
+    # 기존 CSV 존재시 현재 크롤링된 DataFrame과 비교, 새로 추가된 경기들( = 우천 취소로 인한 새 경기 등)을 골라내 맨 뒤로
+    try:
+        # dtype=str: 모든 열의 타입을 str(object)로 설정, 월 열 내용 오류 방지
+        df_old = pd.read_csv(f'crawl_csv/monthly_schedule/월간경기일정{date}.csv', encoding='utf-8', dtype=str)
+        # 기존 CSV의 DataFrame에 현재 DataFrame을 합치고 (인덱스 제외) 중복 행을 제거 = 새로 추가된 경기들
+        new_matches = combined = pd.concat([df_old, df_monthly_schedule]).drop_duplicates(keep=False)
+        df_combined = pd.concat([df_old, new_matches], ignore_index=True)
+        # 인덱스 재설정 (하지 않으면 기존 인덱스가 유지된다)
+        df_combined = df_combined.reset_index(drop=True)
+        df_combined.to_csv(f'crawl_csv/monthly_schedule/월간경기일정{date}.csv', encoding='utf-8', index=False)
+    except FileNotFoundError:
+        # 이전 CSV 파일이 없으므로 바로 저장
+        df_monthly_schedule.to_csv(f'crawl_csv/monthly_schedule/월간경기일정{date}.csv', encoding="utf-8", index=False)
     print("월간 경기 일정 크롤링 성공.")
+
+
+# 연도별 팀 순위
+def get_team_rank(wd: webdriver.chrome, include_old_data=False):
+
+    # 연도를 매개변수로 받아 크롤링
+    def table_crawl(year=2024):
+        # 웹 페이지 URL
+        url_rank = f'https://www.koreabaseball.com/Record/TeamRank/TeamRank.aspx'
+        try:
+            # 웹 URL 열기
+            wd.get(url_rank)
+            # 페이지가 완전히 로드될 때까지 10초 기다리기
+            WebDriverWait(wd, 10).until(is_page_loaded)
+        except Exception as e:
+            print(f"웹 페이지 접속시 오류 발생: {e}")
+            raise Exception
+        # 연도 선택
+        year_select = Select(
+            wd.find_element(By.XPATH, '//*[@id="cphContents_cphContents_cphContents_ddlYear"]'))
+        # select by value
+        year_select.select_by_value(str(year))
+        # 페이지의 소스 코드를 저장
+        html = wd.page_source
+        # BeautifulSoup 객체 생성
+        soup = BeautifulSoup(html, "html.parser")
+        # HTML 소스 코드 출력
+        # print(soup.prettify())
+
+        # DataFrame 데이터 리스트
+        data = []
+        # 테이블 찾기
+        table = soup.find('table')
+        # 테이블의 헤더와 데이터 추출
+        header = [th.get_text() for th in table.find_all('th')]
+        # 테이블 tr을 찾고 tr 내의 td를 처리
+        rows = table.find_all('tr')
+        for row in rows[1:]:
+            tds = row.find_all('td')
+            print(tds)
+            # 테이블 행마다 리스트로 정보 추출
+            data.append([td.get_text() for td in tds])
+        # 열 레이블 리스트와 데이터를 DataFrame으로 합치기
+        df_rank = pd.DataFrame(data, columns=header, index=None)
+        # print(df_runner)
+        # DataFrame 객체를 CSV 파일로 저장
+        df_rank.to_csv(f"crawl_csv/rank/팀순위_{year}.csv", mode='w', encoding='utf-8', index=False)
+
+    if include_old_data:
+        # 불린 True값일 시 2015년부터 2024년까지의 데이터 크롤링
+        for i in range(2015, 2025):
+            table_crawl(i)
+        print("2015년부터의 팀 순위 크롤링 성공.")
+    else:
+        table_crawl()
+        print("팀 순위 크롤링 성공.")
 
 
 # 작업 모두 종료 후 날짜 기록
@@ -425,6 +496,7 @@ def do_crawl(include_old_data=False):
         get_team_runner_table(wd, include_old_data)
         get_daily_data(wd)
         get_monthly_schedule(wd)
+        get_team_rank(wd, include_old_data)
         record_time()
         print("크롤링 작업 성공.")
     except Exception:  # 웹페이지 로드 오류 (서버 닫힘 등으로 인해)
@@ -441,5 +513,6 @@ if __name__ == "__main__":
     options.add_argument("--no-sandbox")  # 보안 샌드박스 비활성화
     wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
     # include_old_data=True일 시 2015년도 팀 타자/투수/주루 데이터부터 크롤링
-    do_crawl(include_old_data=False)
+    # do_crawl(include_old_data=False)
+    get_team_rank(wd, True)
     wd.quit()

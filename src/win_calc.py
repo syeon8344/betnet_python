@@ -19,3 +19,6 @@
     스태티즈 월 경기일정 테이블 XPath: /html/body/div[2]/div[6]/section/div[3]/div/div/div/div[2]/div/table/tbody
     a 태그의 쿼리스트링 수집해서 미리보기 페이지 방문 -> 경기취소시 크롤링 X 
 """
+
+import pandas as pd
+# TODO: 타자/투수/주루를 독립변수로, 팀 순위를 종속변수로 해서 팀 순위를 예측해서 승패 예측에 사용

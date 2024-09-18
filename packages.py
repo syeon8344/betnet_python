@@ -52,3 +52,25 @@ df_combined = df_combined.reset_index(drop=True)
 
 print("결과 데이터프레임:")
 print(df_combined)
+
+# df2에서 df1과 중복되지 않는 행 선택
+df2_unique = df2.merge(df1, how='left', indicator=True)
+print(df2_unique)
+df2_unique = df2_unique[df2_unique['_merge'] == 'left_only'].drop(columns=['_merge'])
+
+print(df2_unique)
+
+# 2. 첫 번째 데이터프레임에 중복되지 않는 행들을 추가
+df_combined = pd.concat([df1, df2_unique], ignore_index=True)
+
+# 3. 결과 데이터프레임의 인덱스를 리셋
+df_combined = df_combined.reset_index(drop=True)
+print(df_combined)
+
+# 두 DataFrame을 연결하고 중복된 행 제거
+combined = pd.concat([df1, df2]).drop_duplicates(keep=False)
+
+print("중복이 아닌 행들:")
+print(combined)
+res = pd.concat([df1, combined], ignore_index=True)
+print(res)
