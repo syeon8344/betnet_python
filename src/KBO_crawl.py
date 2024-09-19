@@ -26,8 +26,6 @@ def is_page_loaded(wd: webdriver.chrome):
 def get_team_hitter_table(wd: webdriver.chrome, include_old_data=False):
     # 연도를 매개변수로 받아 크롤링
     def table_crawl(year=2024):
-        df_table_1 = None
-        df_table_2 = None
         for num in range(1, 3):
             # 웹 URL
             url_hitter = f'https://www.koreabaseball.com/Record/Team/Hitter/Basic{num}.aspx'
@@ -44,6 +42,7 @@ def get_team_hitter_table(wd: webdriver.chrome, include_old_data=False):
                 wd.find_element(By.XPATH, '//*[@id="cphContents_cphContents_cphContents_ddlSeason_ddlSeason"]'))
             # select by value
             year_select.select_by_value(str(year))
+            time.sleep(1)
             # 페이지의 소스 코드를 저장
             html = wd.page_source
             # BeautifulSoup 객체 생성
@@ -98,8 +97,6 @@ def get_team_hitter_table(wd: webdriver.chrome, include_old_data=False):
 def get_team_pitcher_table(wd: webdriver.chrome, include_old_data=False):
     # 연도를 매개변수로 받아 크롤링
     def table_crawl(year=2024):
-        df_table_1 = None
-        df_table_2 = None
         for num in range(1, 3):
             # 웹 페이지 URL
             url_pitcher = f'https://www.koreabaseball.com/Record/Team/Pitcher/Basic{num}.aspx'
@@ -116,6 +113,7 @@ def get_team_pitcher_table(wd: webdriver.chrome, include_old_data=False):
                 wd.find_element(By.XPATH, '//*[@id="cphContents_cphContents_cphContents_ddlSeason_ddlSeason"]'))
             # select by value
             year_select.select_by_value(str(year))
+            time.sleep(1)
             # 페이지의 소스 코드를 저장
             html = wd.page_source
             # BeautifulSoup 객체 생성
@@ -150,7 +148,7 @@ def get_team_pitcher_table(wd: webdriver.chrome, include_old_data=False):
         # 출력
         # print(data)
         # 1, 2페이지 테이블을 겹치지 않게 하나의 DataFrame으로 합치기
-        df_table_2.drop(columns=['순위', '팀명', 'AVG'], inplace=True)
+        df_table_2.drop(columns=['순위', '팀명', 'ERA'], inplace=True)
         df_pitcher = pd.concat([df_table_1, df_table_2], axis=1)
         # print(df_pitcher)
         # DataFrame 객체를 CSV 파일로 저장
@@ -185,6 +183,7 @@ def get_team_runner_table(wd: webdriver.chrome, include_old_data=False):
             wd.find_element(By.XPATH, '//*[@id="cphContents_cphContents_cphContents_ddlSeason_ddlSeason"]'))
         # select by value
         year_select.select_by_value(str(year))
+        time.sleep(1)
         # 페이지의 소스 코드를 저장
         html = wd.page_source
         # BeautifulSoup 객체 생성
@@ -439,6 +438,7 @@ def get_team_rank(wd: webdriver.chrome, include_old_data=False):
             wd.find_element(By.XPATH, '//*[@id="cphContents_cphContents_cphContents_ddlYear"]'))
         # select by value
         year_select.select_by_value(str(year))
+        time.sleep(1)
         # 페이지의 소스 코드를 저장
         html = wd.page_source
         # BeautifulSoup 객체 생성
@@ -483,7 +483,12 @@ def record_time():
         print("크롤링 날짜 입력 성공.")
 
 
+# 크롤링 재시도 변수
+timeout_count = 0
+
+
 def do_crawl(include_old_data=False):
+    global timeout_count
     print("크롤링 작업을 시작합니다.")
     # webdriver 객체 생성
     options = Options()  # 웹드라이버 설정
@@ -500,8 +505,18 @@ def do_crawl(include_old_data=False):
         get_team_rank(wd, include_old_data)
         record_time()
         print("크롤링 작업 성공.")
+        wd.quit()  # 크롤링 종료 후 웹드라이버 닫기
+        timeout_count = 0  # 재시도 변수 초기화
     except Exception:  # 웹페이지 로드 오류 (서버 닫힘 등으로 인해)
-        print("크롤링 작업이 실패했습니다. 다시 시도해 주세요.")
+        if timeout_count == 0:
+            print("크롤링 작업이 실패했습니다. 다시 시도하는 중입니다.")
+            wd.quit()  # 웹드라이버 닫기
+            timeout_count += 1
+            do_crawl()  # 한번 더 재시도
+        elif timeout_count == 1:
+            wd.quit()  # 웹드라이버 닫기
+            print("크롤링 작업이 다시 실패했습니다. 웹페이지 오류가 있는지 확인해 주세요.")
+            timeout_count = 0  # 재시도 변수 초기화
     finally:
         wd.quit()  # 크롤링 종료 후 웹드라이버 닫기
 
@@ -514,6 +529,5 @@ if __name__ == "__main__":
     options.add_argument("--no-sandbox")  # 보안 샌드박스 비활성화
     wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
     # include_old_data=True일 시 2015년도 팀 타자/투수/주루 데이터부터 크롤링
-    # do_crawl(include_old_data=False)
-    get_team_rank(wd, True)
+    do_crawl(include_old_data=False)
     wd.quit()
