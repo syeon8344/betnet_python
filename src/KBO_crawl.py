@@ -337,6 +337,8 @@ def get_daily_data(wd: webdriver.chrome):
     인덱스 문제: 우천 등으로 경기가 취소되는 경우 새로운 경기가 나중에 추가되면 미래 경기에 미리 배팅할 때 인덱스가 깨진다.
     -> 경기 일정이 월마다 미리 등록되어 있으므로 취소된 경기가 나중에 일정표에 추가되면 데이터프레임 맨 끝으로 보내 인덱스 유지
 """
+
+
 # TODO: 승/패 확률을 미리 DataFrame에 포함해서 저장하기?
 def get_monthly_schedule(wd: webdriver.chrome):
     # 다른 연도 및 월 데이터 크롤링시 매개변수 추가: cur_year=2024, cur_month_str="09"
@@ -420,7 +422,6 @@ def get_monthly_schedule(wd: webdriver.chrome):
 
 # 연도별 팀 순위
 def get_team_rank(wd: webdriver.chrome, include_old_data=False):
-
     # 연도를 매개변수로 받아 크롤링
     def table_crawl(year=2024):
         # 웹 페이지 URL
@@ -455,7 +456,7 @@ def get_team_rank(wd: webdriver.chrome, include_old_data=False):
         rows = table.find_all('tr')
         for row in rows[1:]:
             tds = row.find_all('td')
-            print(tds)
+            # print(tds)
             # 테이블 행마다 리스트로 정보 추출
             data.append([td.get_text() for td in tds])
         # 열 레이블 리스트와 데이터를 DataFrame으로 합치기
