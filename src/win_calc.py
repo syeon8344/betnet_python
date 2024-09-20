@@ -47,15 +47,21 @@ pitcher_csv_list = glob.glob("crawl_csv/pitcher/*.csv")
 runner_csv_list = glob.glob("crawl_csv/runner/*.csv")
 rank_csv_list = glob.glob("crawl_csv/rank/*.csv")
 
-csv_per_year = zip(hitter_csv_list, pitcher_csv_list, runner_csv_list, rank_csv_list)
+csv_per_year = list(zip(hitter_csv_list, pitcher_csv_list, runner_csv_list, rank_csv_list))
+print(csv_per_year[0])
 for hitter, pitcher, runner, rank in csv_per_year:
     print(hitter, pitcher, runner, rank)
     df_hitter = pd.read_csv(hitter, encoding="utf-8")[["팀명", "AVG", "R", "HR", "RBI", "BB", "SO", "SLG", "OBP", "OPS"]]
-    df_pitcher = pd.read_csv(pitcher, encoding="utf-8")[["ERA", "SV", "SO", "WHIP", "QS", ]]
-    df_runner = pd.read_csv(runner, encoding="utf-8")[["SB%"]]
+    df_pitcher = pd.read_csv(pitcher, encoding="utf-8")[["팀명", "ERA", "SV", "HLD", "IP", "SO", "WHIP", "CG", "QS", "K/BB"]]
+    df_runner = pd.read_csv(runner, encoding="utf-8")[["팀명", "SBA", "SB", "CS", "SB%", "OOB", "PKO"]]
     df_rank = pd.read_csv(rank, encoding="utf-8")[["순위", "팀명", "승률"]]
-
-
+    df_hitter.set_index("팀명", inplace=True)
+    df_pitcher.set_index("팀명", inplace=True)
+    df_runner.set_index("팀명", inplace=True)
+    df_rank.set_index("팀명", inplace=True)
+    concat_df = pd.concat([df_hitter, df_pitcher, df_runner, df_rank], axis=1)
+    yearly_df = concat_df.sort_values(by="순위", ).reset_index()
+    print(yearly_df)
 # 2. 쓰지 않을 데이터열 .drop()
 # df.drop(['car_name', 'origin', 'horsepower'], axis=1, inplace=True)d
 # print(df.shape)

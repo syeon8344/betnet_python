@@ -50,3 +50,63 @@ def get_schedule():
     # 혹시 모를 스크립트 공격 예방을 위해 적절한 탈출문자 처리도 되므로 jsonify()가 선호된다
     # {\"월\":\"09\",\"일\":\"01\",\"시작시간\":\"14:00\",\"어웨이팀명\":\"롯데\",\"홈팀명\":\"두산\",\"어웨이점수\":\"4\",\"홈점수\":\"3\",\"비고\":\"-\",\"경기코드\":\"20240907-KIA-1700\"}}
     return jsonify(df.to_json(orient='records', force_ascii=False))
+
+
+# 모든 연도 타자 크롤링된 데이터 내보내기
+@app.route('/gethittertable', methods=['GET'])
+def get_hitter_table():
+    # 쿼리 문자열에서 연도 가져오기, 기본값은 2024
+    year = request.args.get('year', default=2024, type=int)
+    # 파일 읽기, 파일 유효성 체크 포함
+    try:
+        df = pd.read_csv(f'crawl_csv/hitter/팀기록_타자_{year}.csv', encoding='utf-8', dtype=str)
+    except FileNotFoundError:
+        print('/gethittertable: 해당 연도 타자 파일이 없습니다.')
+        return abort(404)  # 404 Not Found 에러 반환
+    # DataFrame을 JSON 형태의 문자열로 변환해서 전송
+    return jsonify(df.to_json(orient='records', force_ascii=False))
+
+
+# 특정 연도 투수 크롤링된 데이터 내보내기
+@app.route('/getpitchertable', methods=['GET'])
+def get_pitcher_table():
+    # 쿼리 문자열에서 연도 가져오기, 기본값은 2024
+    year = request.args.get('year', default=2024, type=int)
+    # 파일 읽기, 파일 유효성 체크 포함
+    try:
+        df = pd.read_csv(f'crawl_csv/pitcher/팀기록_투수_{year}.csv', encoding='utf-8', dtype=str)
+    except FileNotFoundError:
+        print('/getpitchertable: 해당 연도 투수 파일이 없습니다.')
+        return abort(404)  # 404 Not Found 에러 반환
+    # DataFrame을 JSON 형태의 문자열로 변환해서 전송
+    return jsonify(df.to_json(orient='records', force_ascii=False))
+
+
+# 특정 연도 주루 크롤링된 데이터 내보내기
+@app.route('/getrunnertable', methods=['GET'])
+def get_runner_table():
+    # 쿼리 문자열에서 연도 가져오기, 기본값은 2024
+    year = request.args.get('year', default=2024, type=int)
+    # 파일 읽기, 파일 유효성 체크 포함
+    try:
+        df = pd.read_csv(f'crawl_csv/runner/팀기록_주루_{year}.csv', encoding='utf-8', dtype=str)
+    except FileNotFoundError:
+        print('/getrunnertable: 해당 연도 주루 파일이 없습니다.')
+        return abort(404)  # 404 Not Found 에러 반환
+    # DataFrame을 JSON 형태의 문자열로 변환해서 전송
+    return jsonify(df.to_json(orient='records', force_ascii=False))
+
+
+# 특정 연도 팀 순위 크롤링된 데이터 내보내기
+@app.route('/getranktable', methods=['GET'])
+def get_rank_table():
+    # 쿼리 문자열에서 연도 가져오기, 기본값은 2024
+    year = request.args.get('year', default=2024, type=int)
+    # 파일 읽기, 파일 유효성 체크 포함
+    try:
+        df = pd.read_csv(f'crawl_csv/rank/팀순위_{year}.csv', encoding='utf-8', dtype=str)
+    except FileNotFoundError:
+        print('/getranktable: 해당 연도 팀 순위 파일이 없습니다.')
+        return abort(404)  # 404 Not Found 에러 반환
+    # DataFrame을 JSON 형태의 문자열로 변환해서 전송
+    return jsonify(df.to_json(orient='records', force_ascii=False))
