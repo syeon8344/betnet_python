@@ -1,5 +1,5 @@
 from flask import request, abort, jsonify
-from app_start import app
+from app import app
 import pandas as pd
 
 
@@ -41,7 +41,7 @@ def get_schedule():
     else:
         date = pd.to_datetime('today').strftime('%Y%m')  # 날짜 입력이 없을 시 현재 년도 월
     try:
-        df = pd.read_csv(f'crawl_csv/monthly_schedule/월간경기일정_{date}.csv', encoding='utf-8', dtype=str)
+        df = pd.read_csv(f'crawl_csv/monthly_schedule/월간경기일정_{date}.csv', encoding='utf-8', dtype={"월": str, "일": str})
     except FileNotFoundError:
         print('/monthlyschedule: 해당 연월의 월간경기일정 파일이 없습니다.')
         return abort(404)  # 404 Not Found 응답 반환
@@ -59,7 +59,7 @@ def get_hitter_table():
     year = request.args.get('year', default=2024, type=int)
     # 파일 읽기, 파일 유효성 체크 포함
     try:
-        df = pd.read_csv(f'crawl_csv/hitter/팀기록_타자_{year}.csv', encoding='utf-8', dtype=str)
+        df = pd.read_csv(f'crawl_csv/hitter/팀기록_타자_{year}.csv', encoding='utf-8')
     except FileNotFoundError:
         print('/gethittertable: 해당 연도 타자 파일이 없습니다.')
         return abort(404)  # 404 Not Found 에러 반환
@@ -74,7 +74,7 @@ def get_pitcher_table():
     year = request.args.get('year', default=2024, type=int)
     # 파일 읽기, 파일 유효성 체크 포함
     try:
-        df = pd.read_csv(f'crawl_csv/pitcher/팀기록_투수_{year}.csv', encoding='utf-8', dtype=str)
+        df = pd.read_csv(f'crawl_csv/pitcher/팀기록_투수_{year}.csv', encoding='utf-8')
     except FileNotFoundError:
         print('/getpitchertable: 해당 연도 투수 파일이 없습니다.')
         return abort(404)  # 404 Not Found 에러 반환
@@ -89,7 +89,7 @@ def get_runner_table():
     year = request.args.get('year', default=2024, type=int)
     # 파일 읽기, 파일 유효성 체크 포함
     try:
-        df = pd.read_csv(f'crawl_csv/runner/팀기록_주루_{year}.csv', encoding='utf-8', dtype=str)
+        df = pd.read_csv(f'crawl_csv/runner/팀기록_주루_{year}.csv', encoding='utf-8')
     except FileNotFoundError:
         print('/getrunnertable: 해당 연도 주루 파일이 없습니다.')
         return abort(404)  # 404 Not Found 에러 반환
@@ -104,7 +104,7 @@ def get_rank_table():
     year = request.args.get('year', default=2024, type=int)
     # 파일 읽기, 파일 유효성 체크 포함
     try:
-        df = pd.read_csv(f'crawl_csv/rank/팀순위_{year}.csv', encoding='utf-8', dtype=str)
+        df = pd.read_csv(f'crawl_csv/rank/팀순위_{year}.csv', encoding='utf-8')
     except FileNotFoundError:
         print('/getranktable: 해당 연도 팀 순위 파일이 없습니다.')
         return abort(404)  # 404 Not Found 에러 반환
