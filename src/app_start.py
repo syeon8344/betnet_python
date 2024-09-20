@@ -5,6 +5,7 @@ import datetime
 from KBO_crawl import do_crawl  # KBO_crawl.py에서 전체 크롤링 함수
 from apscheduler.schedulers.background import BackgroundScheduler  # 작업 스케줄러(오전 6시 크롤링 작업)
 from apscheduler.triggers.cron import CronTrigger  # 매일 특정 시간에 작업을 수행하게 하는 'cron' 트리거
+from src.controller.SurveyController import *
 
 app = Flask(__name__)  # Flask 객체 생성
 CORS(app)
