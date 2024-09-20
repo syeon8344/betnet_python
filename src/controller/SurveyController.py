@@ -1,7 +1,7 @@
 from flask import request
 from numpy.random import choice
 
-from src.app import app
+from src.app_start import app
 from src.service.SurveyService import *
 
 @app.route("/survey/save" , methods = ['get'])
