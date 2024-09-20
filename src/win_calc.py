@@ -38,11 +38,6 @@ import seaborn as sns
 """
 
 
-# 삼진율 계산해서 CSV에 포함: SO/TBF*100, TBF = IP × 2.9(병살 등 고려) + BB + H + HBP
-def add_strikeout_rate(df: pd.DataFrame):
-    df["K%"] = (df["SO"] / (df["IP"] * 2.9 + df["BB"] + df["H"] + df["HBP"])) * 100
-    return df
-
 
 # TODO: 타자/투수/주루를 독립변수로, 팀 순위를 종속변수로 해서 팀 순위를 예측해서 승패 예측에 사용
 # [1] 데이터 준비
@@ -56,8 +51,8 @@ csv_per_year = zip(hitter_csv_list, pitcher_csv_list, runner_csv_list, rank_csv_
 for hitter, pitcher, runner, rank in csv_per_year:
     print(hitter, pitcher, runner, rank)
     df_hitter = pd.read_csv(hitter, encoding="utf-8")[["팀명", "AVG", "R", "HR", "RBI", "BB", "SO", "SLG", "OBP", "OPS"]]
-    df_pitcher = pd.read_csv(pitcher, encoding="utf-8")[["ERA", "SO", "WHIP", ]]
-    df_runner = pd.read_csv(runner, encoding="utf-8")[[]]
+    df_pitcher = pd.read_csv(pitcher, encoding="utf-8")[["ERA", "SV", "SO", "WHIP", "QS", ]]
+    df_runner = pd.read_csv(runner, encoding="utf-8")[["SB%"]]
     df_rank = pd.read_csv(rank, encoding="utf-8")[["순위", "팀명", "승률"]]
 
 

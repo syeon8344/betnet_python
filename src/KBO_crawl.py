@@ -324,10 +324,11 @@ def get_daily_data(wd: webdriver.chrome):
         data_team.append(team_data_away)
         data_team.append(team_data_home)
     # li 요소 순환 완료 후 완성된 데이터프레임 생성 및 CSV 저장
+    today = datetime.datetime.today().date()
     df_pitcher = pd.DataFrame(data_pitcher, columns=columns_pitcher)
-    df_pitcher.to_csv("crawl_csv/일일경기선발투수정보.csv", index=False, encoding="utf-8")
+    df_pitcher.to_csv(f"crawl_csv/일일경기선발투수정보_{today}.csv", index=False, encoding="utf-8")
     df_team = pd.DataFrame(data_team, columns=columns_team)
-    df_team.to_csv("crawl_csv/일일경기팀정보.csv", index=False, encoding="utf-8")
+    df_team.to_csv(f"crawl_csv/일일경기팀정보_{today}.csv", index=False, encoding="utf-8")
     print("일일 경기 정보 크롤링 성공.")
 
 
@@ -396,8 +397,10 @@ def get_monthly_schedule(wd: webdriver.chrome):
             except KeyError:  # ['class'] 값이 day, time, play가 아니다: 원하는 값이 없으므로 continue
                 continue
         # 각 tr 처리 후 추출된 데이터를 data 리스트에 dict()로 추가
+        # 경기고유코드: 20240901-롯데-1400, 연월일-홈팀명-시작시간
+        match_code = f"{date}{day}-{home_team}-{hour.replace(':', "")}"
         data.append({'월': month, '일': day, '시작시간': hour, '어웨이팀명': away_team, '홈팀명': home_team,
-                     '어웨이점수': away_score, '홈점수': home_score, '비고': match_state})
+                     '어웨이점수': away_score, '홈점수': home_score, '비고': match_state, '경기코드': match_code})
         # print(data)
     df_monthly_schedule = pd.DataFrame(data)
     # print(df_monthly_schedule)
@@ -406,16 +409,16 @@ def get_monthly_schedule(wd: webdriver.chrome):
     # 기존 CSV 존재시 현재 크롤링된 DataFrame과 비교, 새로 추가된 경기들( = 우천 취소로 인한 새 경기 등)을 골라내 맨 뒤로
     try:
         # dtype=str: 모든 열의 타입을 str(object)로 설정, 월 열 내용 오류 방지
-        df_old = pd.read_csv(f'crawl_csv/monthly_schedule/월간경기일정{date}.csv', encoding='utf-8', dtype=str)
+        df_old = pd.read_csv(f'crawl_csv/monthly_schedule/월간경기일정_{date}.csv', encoding='utf-8', dtype=str)
         # 기존 CSV의 DataFrame에 현재 DataFrame을 합치고 (인덱스 제외) 중복 행을 제거 = 새로 추가된 경기들
         new_matches = combined = pd.concat([df_old, df_monthly_schedule]).drop_duplicates(keep=False)
         df_combined = pd.concat([df_old, new_matches], ignore_index=True)
         # 인덱스 재설정 (하지 않으면 기존 인덱스가 유지된다)
         df_combined = df_combined.reset_index(drop=True)
-        df_combined.to_csv(f'crawl_csv/monthly_schedule/월간경기일정{date}.csv', encoding='utf-8', index=False)
+        df_combined.to_csv(f'crawl_csv/monthly_schedule/월간경기일정_{date}.csv', encoding='utf-8', index=False)
     except FileNotFoundError:
         # 이전 CSV 파일이 없으므로 바로 저장
-        df_monthly_schedule.to_csv(f'crawl_csv/monthly_schedule/월간경기일정{date}.csv', encoding="utf-8", index=False)
+        df_monthly_schedule.to_csv(f'crawl_csv/monthly_schedule/월간경기일정_{date}.csv', encoding="utf-8", index=False)
     print("월간 경기 일정 크롤링 성공.")
 
 
