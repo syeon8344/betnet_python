@@ -12,7 +12,7 @@ import csv
 import datetime
 import time
 import pandas as pd
-
+import service.crawl_data_service as cds
 # 상태 파일 경로: 마지막으로 앱이 실행된 시간 기록
 CRAWL_LATEST = 'crawl_csv/crawl_latest.csv'
 
@@ -149,9 +149,13 @@ def get_team_pitcher_table(wd: webdriver.chrome, include_old_data=False):
         # print(data)
         # 1, 2페이지 테이블을 겹치지 않게 하나의 DataFrame으로 합치기
         df_table_2.drop(columns=['순위', '팀명', 'ERA'], inplace=True)
-        df_pitcher = pd.concat([df_table_1, df_table_2], axis=1)
+        df = pd.concat([df_table_1, df_table_2], axis=1)
         # print(df_pitcher)
         # DataFrame 객체를 CSV 파일로 저장
+        try:
+            df_pitcher = cds.add_pitcher_metrics(df)
+        except Exception as e:
+            print(e)
         df_pitcher.to_csv(f"crawl_csv/pitcher/팀기록_투수_{year}.csv", mode='w', encoding='utf-8', index=False)
 
     if include_old_data:
@@ -397,12 +401,12 @@ def get_monthly_schedule(wd: webdriver.chrome):
             except KeyError:  # ['class'] 값이 day, time, play가 아니다: 원하는 값이 없으므로 continue
                 continue
         # 각 tr 처리 후 추출된 데이터를 data 리스트에 dict()로 추가
-        # 경기고유코드: 20240901-롯데-1400, 연월일-홈팀명-시작시간
-        match_code = f"{date}{day}-{home_team}-{hour.replace(':', "")}"
+
         data.append({'월': month, '일': day, '시작시간': hour, '어웨이팀명': away_team, '홈팀명': home_team,
-                     '어웨이점수': away_score, '홈점수': home_score, '비고': match_state, '경기코드': match_code})
+                     '어웨이점수': away_score, '홈점수': home_score, '비고': match_state})
         # print(data)
-    df_monthly_schedule = pd.DataFrame(data)
+    df = pd.DataFrame(data)
+    df_monthly_schedule = cds.add_match_code(df, date)
     # print(df_monthly_schedule)
 
     # 우천 취소 경기가 있어도 기존 경기들 인덱스가 꼬이지 않도록 설정
@@ -411,7 +415,7 @@ def get_monthly_schedule(wd: webdriver.chrome):
         # dtype=str: 모든 열의 타입을 str(object)로 설정, 월 열 내용 오류 방지
         df_old = pd.read_csv(f'crawl_csv/monthly_schedule/월간경기일정_{date}.csv', encoding='utf-8', dtype=str)
         # 기존 CSV의 DataFrame에 현재 DataFrame을 합치고 (인덱스 제외) 중복 행을 제거 = 새로 추가된 경기들
-        new_matches = combined = pd.concat([df_old, df_monthly_schedule]).drop_duplicates(keep=False)
+        new_matches = pd.concat([df_old, df_monthly_schedule]).drop_duplicates(keep=False)
         df_combined = pd.concat([df_old, new_matches], ignore_index=True)
         # 인덱스 재설정 (하지 않으면 기존 인덱스가 유지된다)
         df_combined = df_combined.reset_index(drop=True)
@@ -532,5 +536,6 @@ if __name__ == "__main__":
     options.add_argument("--no-sandbox")  # 보안 샌드박스 비활성화
     wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
     # include_old_data=True일 시 2015년도 팀 타자/투수/주루 데이터부터 크롤링
-    do_crawl(include_old_data=False)
+    # do_crawl(include_old_data=False)
+    get_team_pitcher_table(wd, True)
     wd.quit()
