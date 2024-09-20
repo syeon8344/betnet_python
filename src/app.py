@@ -7,7 +7,7 @@ app = Flask(__name__)  # Flask 객체 생성
 CORS(app)
 
 
-from controller.SurveyController import *
+from src.controller.SurveyController import *
 
 
 # Flask 웹 실행

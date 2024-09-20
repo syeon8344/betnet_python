@@ -8,6 +8,7 @@ from src.service.SurveyService import *
 def index():
 
     question1 = request.args.get('question1')
+    print(question1)
     question2 = request.args.get('question2')
     question3 = request.args.get('question3')
     question4 = request.args.get('question4')
@@ -30,7 +31,7 @@ def index():
         "question9": question9,
         "question10": question10
     }
-
+    print(param)
     data = recommendTest( param )
     return data
 
