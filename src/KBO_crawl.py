@@ -326,9 +326,9 @@ def get_daily_data(wd: webdriver.chrome):
     # li 요소 순환 완료 후 완성된 데이터프레임 생성 및 CSV 저장
     today = datetime.datetime.today().date()
     df_pitcher = pd.DataFrame(data_pitcher, columns=columns_pitcher)
-    df_pitcher.to_csv(f"crawl_csv/일일경기선발투수정보_{today}.csv", index=False, encoding="utf-8")
+    df_pitcher.to_csv(f"crawl_csv/daily_pitcher_vs/일일경기선발투수정보_{today}.csv", index=False, encoding="utf-8")
     df_team = pd.DataFrame(data_team, columns=columns_team)
-    df_team.to_csv(f"crawl_csv/일일경기팀정보_{today}.csv", index=False, encoding="utf-8")
+    df_team.to_csv(f"crawl_csv/daily_team_vs/일일경기팀정보_{today}.csv", index=False, encoding="utf-8")
     print("일일 경기 정보 크롤링 성공.")
 
 
