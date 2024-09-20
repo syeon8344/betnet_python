@@ -536,6 +536,5 @@ if __name__ == "__main__":
     options.add_argument("--no-sandbox")  # 보안 샌드박스 비활성화
     wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
     # include_old_data=True일 시 2015년도 팀 타자/투수/주루 데이터부터 크롤링
-    # do_crawl(include_old_data=False)
-    get_team_pitcher_table(wd, True)
+    do_crawl(include_old_data=False)
     wd.quit()
