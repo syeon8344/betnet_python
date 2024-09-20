@@ -398,7 +398,7 @@ def get_monthly_schedule(wd: webdriver.chrome):
                 continue
         # 각 tr 처리 후 추출된 데이터를 data 리스트에 dict()로 추가
         # 경기고유코드: 20240901-롯데-1400, 연월일-홈팀명-시작시간
-        match_code = f"{date}{day}-{home_team}-{hour.replace(':', "")}"
+        match_code = f"{date}{day}-{home_team}-{hour.replace(':', '')}"
         data.append({'월': month, '일': day, '시작시간': hour, '어웨이팀명': away_team, '홈팀명': home_team,
                      '어웨이점수': away_score, '홈점수': home_score, '비고': match_state, '경기코드': match_code})
         # print(data)
