@@ -13,6 +13,7 @@ import datetime
 import time
 import pandas as pd
 import service.crawl_data_service as cds
+
 # 상태 파일 경로: 마지막으로 앱이 실행된 시간 기록
 CRAWL_LATEST = 'crawl_csv/crawl_latest.csv'
 
@@ -336,14 +337,64 @@ def get_daily_data(wd: webdriver.chrome):
     print("일일 경기 정보 크롤링 성공.")
 
 
+# 연도별 팀 순위
+def get_team_rank(wd: webdriver.chrome, include_old_data=False):
+    # 연도를 매개변수로 받아 크롤링
+    def table_crawl(year=2024):
+        # 웹 페이지 URL
+        url_rank = f'https://www.koreabaseball.com/Record/TeamRank/TeamRank.aspx'
+        try:
+            # 웹 URL 열기
+            wd.get(url_rank)
+            # 페이지가 완전히 로드될 때까지 10초 기다리기
+            WebDriverWait(wd, 10).until(is_page_loaded)
+        except Exception as e:
+            print(f"웹 페이지 접속시 오류 발생: {e}")
+            raise Exception
+        # 연도 선택
+        year_select = Select(
+            wd.find_element(By.XPATH, '//*[@id="cphContents_cphContents_cphContents_ddlYear"]'))
+        # select by value
+        year_select.select_by_value(str(year))
+        time.sleep(1)
+        # 페이지의 소스 코드를 저장
+        html = wd.page_source
+        # BeautifulSoup 객체 생성
+        soup = BeautifulSoup(html, "html.parser")
+        # HTML 소스 코드 출력
+        # print(soup.prettify())
+
+        # DataFrame 데이터 리스트
+        data = []
+        # 테이블 찾기
+        table = soup.find('table')
+        # 테이블의 헤더와 데이터 추출
+        header = [th.get_text() for th in table.find_all('th')]
+        # 테이블 tr을 찾고 tr 내의 td를 처리
+        rows = table.find_all('tr')
+        for row in rows[1:]:
+            tds = row.find_all('td')
+            # print(tds)
+            # 테이블 행마다 리스트로 정보 추출
+            data.append([td.get_text() for td in tds])
+        # 열 레이블 리스트와 데이터를 DataFrame으로 합치기
+        df_rank = pd.DataFrame(data, columns=header, index=None)
+        # print(df_runner)
+        # DataFrame 객체를 CSV 파일로 저장
+        df_rank.to_csv(f"crawl_csv/rank/팀순위_{year}.csv", mode='w', encoding='utf-8', index=False)
+
+    if include_old_data:
+        # 불린 True값일 시 2015년부터 2024년까지의 데이터 크롤링
+        for i in range(2015, 2025):
+            table_crawl(i)
+        print("2015년부터의 팀 순위 크롤링 성공.")
+    else:
+        table_crawl()
+        print("팀 순위 크롤링 성공.")
+
+
 # 월간 스케줄표: 매일 갱신하면 매일 업데이트된 경기 결과도 가져올 수 있다.
-"""
-    인덱스 문제: 우천 등으로 경기가 취소되는 경우 새로운 경기가 나중에 추가되면 미래 경기에 미리 배팅할 때 인덱스가 깨진다.
-    -> 경기 일정이 월마다 미리 등록되어 있으므로 취소된 경기가 나중에 일정표에 추가되면 데이터프레임 맨 끝으로 보내 인덱스 유지
-"""
-
-
-# TODO: 승/패 확률을 미리 DataFrame에 포함해서 저장하기?
+# 승/패 확률을 미리 DataFrame에 포함해서 저장하기
 def get_monthly_schedule(wd: webdriver.chrome):
     # 다른 연도 및 월 데이터 크롤링시 매개변수 추가: cur_year=2024, cur_month_str="09"
 
@@ -406,7 +457,8 @@ def get_monthly_schedule(wd: webdriver.chrome):
                      '어웨이점수': away_score, '홈점수': home_score, '비고': match_state})
         # print(data)
     df = pd.DataFrame(data)
-    df_monthly_schedule = cds.add_match_code(df, date)
+    df_match_code = cds.add_match_code(df, date)
+    df_monthly_schedule = cds.add_win_calc(df_match_code)
     # print(df_monthly_schedule)
 
     # 우천 취소 경기가 있어도 기존 경기들 인덱스가 꼬이지 않도록 설정
@@ -426,60 +478,6 @@ def get_monthly_schedule(wd: webdriver.chrome):
     print("월간 경기 일정 크롤링 성공.")
 
 
-# 연도별 팀 순위
-def get_team_rank(wd: webdriver.chrome, include_old_data=False):
-    # 연도를 매개변수로 받아 크롤링
-    def table_crawl(year=2024):
-        # 웹 페이지 URL
-        url_rank = f'https://www.koreabaseball.com/Record/TeamRank/TeamRank.aspx'
-        try:
-            # 웹 URL 열기
-            wd.get(url_rank)
-            # 페이지가 완전히 로드될 때까지 10초 기다리기
-            WebDriverWait(wd, 10).until(is_page_loaded)
-        except Exception as e:
-            print(f"웹 페이지 접속시 오류 발생: {e}")
-            raise Exception
-        # 연도 선택
-        year_select = Select(
-            wd.find_element(By.XPATH, '//*[@id="cphContents_cphContents_cphContents_ddlYear"]'))
-        # select by value
-        year_select.select_by_value(str(year))
-        time.sleep(1)
-        # 페이지의 소스 코드를 저장
-        html = wd.page_source
-        # BeautifulSoup 객체 생성
-        soup = BeautifulSoup(html, "html.parser")
-        # HTML 소스 코드 출력
-        # print(soup.prettify())
-
-        # DataFrame 데이터 리스트
-        data = []
-        # 테이블 찾기
-        table = soup.find('table')
-        # 테이블의 헤더와 데이터 추출
-        header = [th.get_text() for th in table.find_all('th')]
-        # 테이블 tr을 찾고 tr 내의 td를 처리
-        rows = table.find_all('tr')
-        for row in rows[1:]:
-            tds = row.find_all('td')
-            # print(tds)
-            # 테이블 행마다 리스트로 정보 추출
-            data.append([td.get_text() for td in tds])
-        # 열 레이블 리스트와 데이터를 DataFrame으로 합치기
-        df_rank = pd.DataFrame(data, columns=header, index=None)
-        # print(df_runner)
-        # DataFrame 객체를 CSV 파일로 저장
-        df_rank.to_csv(f"crawl_csv/rank/팀순위_{year}.csv", mode='w', encoding='utf-8', index=False)
-
-    if include_old_data:
-        # 불린 True값일 시 2015년부터 2024년까지의 데이터 크롤링
-        for i in range(2015, 2025):
-            table_crawl(i)
-        print("2015년부터의 팀 순위 크롤링 성공.")
-    else:
-        table_crawl()
-        print("팀 순위 크롤링 성공.")
 
 
 # 작업 모두 종료 후 날짜 기록
@@ -504,12 +502,12 @@ def do_crawl(include_old_data=False):
     wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)
     try:
         # 크롤링 작업들 실행
-        get_team_hitter_table(wd, include_old_data)
-        get_team_pitcher_table(wd, include_old_data)
-        get_team_runner_table(wd, include_old_data)
-        get_daily_data(wd)
+        # get_team_hitter_table(wd, include_old_data)
+        # get_team_pitcher_table(wd, include_old_data)
+        # get_team_runner_table(wd, include_old_data)
+        # get_daily_data(wd)
+        # get_team_rank(wd, include_old_data)
         get_monthly_schedule(wd)
-        get_team_rank(wd, include_old_data)
         record_time()
         print("크롤링 작업 성공.")
         wd.quit()  # 크롤링 종료 후 웹드라이버 닫기

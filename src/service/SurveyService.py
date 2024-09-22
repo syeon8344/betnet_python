@@ -31,13 +31,13 @@ runner_csv_list = glob.glob("./crawl_csv/runner/*.csv")
 rank_csv_list = glob.glob("./crawl_csv/rank/*.csv")
 
 csv_per_year = zip(hitter_csv_list, pitcher_csv_list, runner_csv_list, rank_csv_list)
-print( csv_per_year )
+# print( csv_per_year )
 for hitter, pitcher, runner, rank in csv_per_year:
-    print(hitter, pitcher, runner, rank)
+    # print(hitter, pitcher, runner, rank)
     df_hitter = pd.read_csv(hitter, encoding="utf-8")[["팀명", "HR" , "SF" , "SLG" , "OBP" , "2B" , "3B" , "AVG" , "OPS"  , "R" ,
                                                        "TB" , "RBI" , "PH-BA" , "RISP" ]]
 
-print( df_hitter )
+# print( df_hitter )
 # print( df_hitter.sort_values('RISP'))
 # print( df_hitter.sort_values('RISP').tail(3)['팀명'].to_list() )
 questionnaire = {
@@ -88,7 +88,7 @@ questionnaire = {
         'power_rbi': df_hitter.sort_values('SLG').tail(3)['팀명'].to_list()    #  SLG: 장타율
     }
 }
-print(questionnaire)
+# print(questionnaire)
 # 각 질문에 선택하는 보기에 따라 , 선택된 팀을 포함하는 데이터를 딕셔너리에 담는다.
 
 # 사용자의 선택을 입력받는 함수
