@@ -90,7 +90,7 @@ def add_win_calc(df: pd.DataFrame):
     :return 각 팀별 승률과 배당금 비율 열이 포함된 DataFrame
     """
     # 다른 파일에서 호출된 경우 해당 파일 주소가 상대 위치의 시작점이므로 경로 수정 필요: app.py에서 실행시 /src
-    # 아래는 현재 프로세스의 실행 경로 확인 코드
+    # 현재 프로세스의 실행 경로 확인 코드
     # import os
     #
     # current_directory = os.getcwd()
@@ -111,27 +111,44 @@ def add_win_calc(df: pd.DataFrame):
         해결방법: (일단은) 바로 전 연도까지의 데이터만 사용한다.
     """
     for hitter, pitcher, runner, rank in csv_per_year[:-1]:  # 올해 제외 (2015~2023)
-        df_hitter = pd.read_csv(hitter, encoding="utf-8")[["팀명", "OPS"]]
-        df_pitcher = pd.read_csv(pitcher, encoding="utf-8")[["팀명", "ERA", "CG", "QS", "K%", "K/BB", "WHIP"]]
+        df_hitter = pd.read_csv(hitter, encoding="utf-8")[["팀명", "RBI", "OPS"]]
+        df_pitcher = pd.read_csv(pitcher, encoding="utf-8")[["팀명", "ERA", "HLD", "CG", "QS", "K%", "K/BB", "WHIP"]]
         df_runner = pd.read_csv(runner, encoding="utf-8")[["팀명", "SB%", "OOB", "PKO"]]
         df_rank = pd.read_csv(rank, encoding="utf-8")[["순위", "팀명", "승률"]]
         df_hitter.set_index("팀명", inplace=True)
         df_pitcher.set_index("팀명", inplace=True)
         df_runner.set_index("팀명", inplace=True)
         df_rank.set_index("팀명", inplace=True)
+
         concat_df = pd.concat([df_rank, df_hitter, df_pitcher, df_runner], axis=1)
         yearly_df = concat_df.sort_values(by="순위").reset_index()
         year_df_list.append(yearly_df)
 
     # 2015~2024 전체 타자/투수/주루/팀순위 DataFrame
-    df_data = pd.concat(year_df_list, ignore_index=True)
+    df_d = pd.concat(year_df_list, ignore_index=True)
     # print(df_data.shape)
     # print(df_data.columns)
 
+    # 표준화된 지표 추가: (열 - 열 평균)/표준편차
+    def add_standardized_data(df: pd.DataFrame):
+        hld_mean = df['HLD'].mean()
+        hld_std_dev = df['HLD'].std()
+        rbi_mean = df['RBI'].mean()
+        rbi_std_dev = df['RBI'].std()
+        qs_mean = df['QS'].mean()
+        qs_std_dev = df['QS'].std()
+        # 각 열의 표준화된 값 열 추가
+        df['HLD_st'] = round((df['HLD'] - hld_mean) / hld_std_dev, 3)
+        df['RBI_st'] = round((df['RBI'] - rbi_mean) / rbi_std_dev, 3)
+        df['QS_st'] = round((df['QS'] - qs_mean) / qs_std_dev, 3)
+        return df
+
+    df_data = add_standardized_data(df_d)
     # 선형 회귀 모델
     # 독립 변수와 종속 변수 분리
     y = df_data["순위"]
-    x = df_data.drop(["순위", "팀명"], axis=1, inplace=False)
+    x = df_data.drop(["순위", "팀명", "HLD", "RBI", "QS"], axis=1, inplace=False)  # 표준화 열의 원본 열도 제외
+    print(x.columns)
     # 훈련용, 테스트용 데이터 분리
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.3, random_state=0)
     # 선형 회귀 분석 모델
@@ -140,24 +157,26 @@ def add_win_calc(df: pd.DataFrame):
     lr.fit(x_train, y_train)
     # 테스트 데이터에 대한 예측 수행: y_predict
     y_predict = lr.predict(x_test)
-    print(y_predict)
+    # print(y_predict)
     # 훈련된 선형 회귀 분석 모델 평가
     mse = mean_squared_error(y_test, y_predict)
     rmse = np.sqrt(mse)
     r2 = r2_score(y_test, y_predict)
-    print("=== Linear Regression 모델 평가 지표 ===")
+    print("=== 승률/배당률 선형 회귀 모델 평가 지표 ===")
     print(f"MSE: {mse:.2f}, RMSE: {rmse:.2f}, R^2: {r2:.2f}")
     print(f"y 절편: {np.round(lr.intercept_, 2)}, 회귀계수: {np.round(lr.coef_, 2)}")
     coef = pd.Series(data=np.round(lr.coef_, 2), index=x.columns)
     coef.sort_values(ascending=False)
     print(coef)
-    print("======================================")
+    print("========================================")
 
     # 각 행에 대해 예측 수행
     # row: DataFrame의 각 행을 나타내는 매개변수
     # axis=1: 함수를 행 단위로 적용
-    # df_latest = 연도별 df 목록의 맨 마지막: 타자/투수/주루/순위 정보가 합쳐진 마지막 연도 DataFrame
-    df_latest = year_df_list[-1]
+    # df_latest = 타자/투수/주루/순위 정보가 합쳐진 작년도 DataFrame
+    df_l = year_df_list[-2]
+    df_latest = add_standardized_data(df_l)
+
     df["어웨이예측순위"] = df.apply(
         lambda row: round(lr.predict(df_latest.loc[df_latest['팀명'] == row['어웨이팀명'], x.columns])[0], 3),  # 예측할 입력 데이터를 배열로 변환
         axis=1  # 행 단위로 적용
