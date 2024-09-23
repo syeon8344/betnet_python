@@ -17,16 +17,25 @@ import service.crawl_data_service as cds
 # 상태 파일 경로: 마지막으로 앱이 실행된 시간 기록
 CRAWL_LATEST = 'crawl_csv/crawl_latest.csv'
 
+cur_year = datetime.datetime.now().year
 
 # 페이지 로드 상태 확인: 웹페이지 로드 오류시 CSV 파일 수정하지 않고 False 반환하도록
 def is_page_loaded(wd: webdriver.chrome):
     return wd.execute_script("return document.readyState;") == "complete"
 
 
+# 넥센, HERO -> 키움
+def update_team_name(df: pd.DataFrame):
+    # .isin(["넥센", "HERO"]): "팀명" 열의 각 값이 리스트 ["넥센", "HERO"]에 포함되어 있는지 불리언
+    # , "팀명": 앞이 True일 경우 "팀명" 열을 = 뒤의 값으로 바꾼다
+    df.loc[df["팀명"].isin(["넥센", "HERO"]), "팀명"] = "키움"
+    return df
+
+
 # [1] 팀 단위 타자 성적: 타율순으로 정렬, include_old_data=True시 2015년 데이터부터 크롤링
 def get_team_hitter_table(wd: webdriver.chrome, include_old_data=False):
     # 연도를 매개변수로 받아 크롤링
-    def table_crawl(year=2024):
+    def table_crawl(year=cur_year):
         for num in range(1, 3):
             # 웹 URL
             url_hitter = f'https://www.koreabaseball.com/Record/Team/Hitter/Basic{num}.aspx'
@@ -86,7 +95,7 @@ def get_team_hitter_table(wd: webdriver.chrome, include_old_data=False):
 
     if include_old_data:
         # 불린 True값일 시 2015년부터 2024년까지의 데이터 크롤링
-        for i in range(2015, 2025):
+        for i in range(2015, cur_year + 1):
             table_crawl(i)
         print("2015년부터의 팀 타자 기록 크롤링 성공.")
     else:
@@ -97,7 +106,7 @@ def get_team_hitter_table(wd: webdriver.chrome, include_old_data=False):
 # [2] 팀 단위 투수 평균자책점순 DataFrame 생성 및 CSV, include_old_data=True시 2015년 데이터부터 크롤링
 def get_team_pitcher_table(wd: webdriver.chrome, include_old_data=False):
     # 연도를 매개변수로 받아 크롤링
-    def table_crawl(year=2024):
+    def table_crawl(year=cur_year):
         for num in range(1, 3):
             # 웹 페이지 URL
             url_pitcher = f'https://www.koreabaseball.com/Record/Team/Pitcher/Basic{num}.aspx'
@@ -161,7 +170,7 @@ def get_team_pitcher_table(wd: webdriver.chrome, include_old_data=False):
 
     if include_old_data:
         # 불린 True값일 시 2015년부터 2024년까지의 데이터 크롤링
-        for i in range(2015, 2025):
+        for i in range(2015, cur_year + 1):
             table_crawl(i)
         print("2015년부터의 팀 투수 기록 크롤링 성공.")
     else:
@@ -172,7 +181,7 @@ def get_team_pitcher_table(wd: webdriver.chrome, include_old_data=False):
 # [2] 팀 단위 주루 도루허용순 DataFrame 생성 및 CSV, include_old_data=True시 2015년 데이터부터 크롤링
 def get_team_runner_table(wd: webdriver.chrome, include_old_data=False):
     # 연도를 매개변수로 받아 크롤링
-    def table_crawl(year=2024):
+    def table_crawl(year=cur_year):
         # 웹 페이지 URL
         url_runner = f'https://www.koreabaseball.com/Record/Team/Runner/Basic.aspx'
         try:
@@ -340,7 +349,7 @@ def get_daily_data(wd: webdriver.chrome):
 # 연도별 팀 순위
 def get_team_rank(wd: webdriver.chrome, include_old_data=False):
     # 연도를 매개변수로 받아 크롤링
-    def table_crawl(year=2024):
+    def table_crawl(year=cur_year):
         # 웹 페이지 URL
         url_rank = f'https://www.koreabaseball.com/Record/TeamRank/TeamRank.aspx'
         try:
@@ -382,6 +391,61 @@ def get_team_rank(wd: webdriver.chrome, include_old_data=False):
         # print(df_runner)
         # DataFrame 객체를 CSV 파일로 저장
         df_rank.to_csv(f"crawl_csv/rank/팀순위_{year}.csv", mode='w', encoding='utf-8', index=False)
+
+    if include_old_data:
+        # 불린 True값일 시 2015년부터 2024년까지의 데이터 크롤링
+        for i in range(2015, 2025):
+            table_crawl(i)
+        print("2015년부터의 팀 순위 크롤링 성공.")
+    else:
+        table_crawl()
+        print("팀 순위 크롤링 성공.")
+
+
+# TODO: 팀명 수정, 팀 레이블명 확인 및 팀 이름 바리에이션 확인
+# wOBA, WAR 수치 추가 크롤링
+def get_kbreport_crawl(wd: webdriver.chrome, include_old_data=False):
+    # 연도를 매개변수로 받아 크롤링
+    def table_crawl(year=cur_year):
+        # 웹 페이지 URL
+        # 출처: 야구기록실 케이비리포트 KBReport.com(케이비리포트)
+        url_kbreport = f'http://www.kbreport.com/teams/main?year_from={year}&year_to={year}'
+        try:
+            # 웹 URL 열기
+            wd.get(url_kbreport)
+            # 페이지가 완전히 로드될 때까지 10초 기다리기
+            WebDriverWait(wd, 10).until(is_page_loaded)
+        except Exception as e:
+            print(f"웹 페이지 접속시 오류 발생: {e}")
+            raise Exception
+        # 페이지의 소스 코드를 저장
+        html = wd.page_source
+        # BeautifulSoup 객체 생성
+        soup = BeautifulSoup(html, "html.parser")
+        # HTML 소스 코드 출력
+        # print(soup.prettify())
+
+        # DataFrame 데이터 리스트
+        data = []
+        # 테이블 찾기
+        table = soup.find("table")
+        print(table)
+        # 테이블의 헤더와 데이터 추출
+        header = [th.get_text() for th in table.find_all('th')]
+        header[0] = "순위"  # "#" 레이블을 "순위"
+        # 테이블 tr을 찾고 tr 내의 td를 처리
+        rows = table.find_all('tr')
+        for row in rows[1:-1]:  # 헤더와 합계 열 제외
+            tds = row.find_all('td')
+            # print(tds)
+            # 테이블 행마다 리스트로 정보 추출
+            data.append([td.get_text().strip().replace("\"", "").upper() for td in tds])
+        # 열 레이블 리스트와 데이터를 DataFrame으로 합치기
+        df_kbreport = pd.DataFrame(data, columns=header, index=None)
+        df_kbreport.apply(lambda x: "키움")
+        # print(df_runner)
+        # DataFrame 객체를 CSV 파일로 저장
+        df_kbreport.to_csv(f"crawl_csv/kbreport/kbreport_{year}.csv", mode='w', encoding='utf-8', index=False)
 
     if include_old_data:
         # 불린 True값일 시 2015년부터 2024년까지의 데이터 크롤링
@@ -492,6 +556,7 @@ def do_crawl(include_old_data=False):
         get_team_runner_table(wd, include_old_data)
         get_daily_data(wd)
         get_team_rank(wd, include_old_data)
+        get_kbreport_crawl(wd, include_old_data)
         get_monthly_schedule(wd)
         record_time()
         print("크롤링 작업 성공.")
@@ -519,6 +584,7 @@ if __name__ == "__main__":
     options.add_argument("--no-sandbox")  # 보안 샌드박스 비활성화
     wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
     # include_old_data=True일 시 2015년도 팀 타자/투수/주루 데이터부터 크롤링
-    do_crawl(include_old_data=False)
+    # do_crawl(include_old_data=False)
     # get_monthly_schedule(wd)
-    wd.quit()
+    get_kbreport_crawl(wd, True)
+    # wd.quit()
