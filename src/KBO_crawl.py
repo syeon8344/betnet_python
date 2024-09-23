@@ -478,8 +478,6 @@ def get_monthly_schedule(wd: webdriver.chrome):
     print("월간 경기 일정 크롤링 성공.")
 
 
-
-
 # 작업 모두 종료 후 날짜 기록
 def record_time():
     with open(CRAWL_LATEST, mode='w', newline='') as file:
@@ -502,11 +500,11 @@ def do_crawl(include_old_data=False):
     wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)
     try:
         # 크롤링 작업들 실행
-        # get_team_hitter_table(wd, include_old_data)
-        # get_team_pitcher_table(wd, include_old_data)
-        # get_team_runner_table(wd, include_old_data)
-        # get_daily_data(wd)
-        # get_team_rank(wd, include_old_data)
+        get_team_hitter_table(wd, include_old_data)
+        get_team_pitcher_table(wd, include_old_data)
+        get_team_runner_table(wd, include_old_data)
+        get_daily_data(wd)
+        get_team_rank(wd, include_old_data)
         get_monthly_schedule(wd)
         record_time()
         print("크롤링 작업 성공.")
