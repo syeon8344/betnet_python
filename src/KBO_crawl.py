@@ -426,34 +426,21 @@ def get_monthly_schedule(wd: webdriver.chrome):
     for tr in monthly_table:  # 테이블 행 (날짜는 각 날짜 맨 처음 행에서만 나온다)
         # print(tr)
         tds = tr.select('td')
-        # print(tds)
-        match_state = tds[-1].string
-        for td in tds:  # 행마다의 각 열 정보 쪼개기
-            # print(td)
-            try:
-                if 'day' in td['class']:
-                    month = td.string[0:2]
-                    day = td.string[3:5]
-                    # print("day", month, day)
-                elif 'time' in td['class']:
-                    hour = td.b.string
-                    # print("time", time)
-                elif 'play' in td['class']:
-                    teams = td.select('span')
-                    away_team = teams[0].string
-                    home_team = teams[-1].string
-                    away_score = np.nan
-                    home_score = np.nan
-                    if len(teams) == 5:  # 승 패 결과가 있는 경기
-                        away_score = teams[1].string
-                        home_score = teams[-2].string
-                        # print("score", away_score, home_score)
-                    # print("team", away_team, home_team)
-            except KeyError:  # ['class'] 값이 day, time, play가 아니다: 원하는 값이 없으므로 continue
-                continue
-        # 각 tr 처리 후 추출된 데이터를 data 리스트에 dict()로 추가
+        # print(tds)  # [<td></td>,<td></td>,<td></td>]
+        match_state = tds[-1].string if tds[-1].string != "-" else np.nan  # 빈칸이 아닐 때 표기한다
+        if len(tds) == 9:  # 날짜가 포함된 행 처리 (날짜 칸에 rowspan이 있음)
+            month = tds[0].string[0:2]
+            day = tds[0].string[3:5]
+            tds = tds[1:]
+        hour = tds[0].string
+        spans = tds[1].find_all('span')
+        away_team = spans[0].string
+        home_team = spans[-1].string
+        away_score = spans[1].string if len(spans) == 5 else np.nan
+        home_score = spans[-2].string if len(spans) == 5 else np.nan
 
-        data.append({'월': month, '일': day, '시작시간': hour, '어웨이팀명': away_team, '홈팀명': home_team,
+        # 각 행 처리 후 추출된 데이터를 data 리스트에 dict()로 추가
+        data.append({'연도': selected_year, '월': month, '일': day, '시작시간': hour, '어웨이팀명': away_team, '홈팀명': home_team,
                      '어웨이점수': away_score, '홈점수': home_score, '비고': match_state})
         # print(data)
     df = pd.DataFrame(data)
@@ -533,4 +520,5 @@ if __name__ == "__main__":
     wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
     # include_old_data=True일 시 2015년도 팀 타자/투수/주루 데이터부터 크롤링
     do_crawl(include_old_data=False)
+    # get_monthly_schedule(wd)
     wd.quit()

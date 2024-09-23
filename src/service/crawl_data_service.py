@@ -29,6 +29,9 @@ def add_match_code(df: pd.DataFrame, date: str):
         lambda row: f"{date}{row["일"]}-{row["홈팀명"]}-{row["시작시간"].replace(":", "")}",
         axis=1
     )
+
+    # 경기코드 열을 DataFrame의 맨 앞에 삽입
+    df.insert(0, "경기코드", df.pop("경기코드"))
     return df
 
 
@@ -103,7 +106,11 @@ def add_win_calc(df: pd.DataFrame):
     csv_per_year = list(zip(hitter_csv_list, pitcher_csv_list, runner_csv_list, rank_csv_list))
 
     # zip된 각 CSV 주소들을 각각 변수 이름으로 CSV 파일에서 DataFrame을 읽어와 연도별로 합친다
-    for hitter, pitcher, runner, rank in csv_per_year:
+    """
+        배당률이 변하는 문제: 매번 배당률 계산시 매일 크롤링하는 2024년 선수 데이터가 적용되어서 문제가 생긴다.
+        해결방법: (일단은) 바로 전 연도까지의 데이터만 사용한다.
+    """
+    for hitter, pitcher, runner, rank in csv_per_year[:-1]:  # 올해 제외 (2015~2023)
         df_hitter = pd.read_csv(hitter, encoding="utf-8")[["팀명", "OPS"]]
         df_pitcher = pd.read_csv(pitcher, encoding="utf-8")[["팀명", "ERA", "CG", "QS", "K%", "K/BB", "WHIP"]]
         df_runner = pd.read_csv(runner, encoding="utf-8")[["팀명", "SB%", "OOB", "PKO"]]
