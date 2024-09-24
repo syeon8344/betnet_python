@@ -1,7 +1,9 @@
+import json
+
 from flask import request, abort, jsonify
 from src.app import app
 import pandas as pd
-import json
+
 
 # 월간 경기일정을 CSV에서 읽어와서 (인덱스 포함) JSON형태의 문자열로 보내기
 # 연도와 월 포함시 특정 월 파일 정보 제공, 기본값은 현재 날짜
@@ -24,6 +26,7 @@ def monthly_schedule():
     # jsonify() vs json.dumps(): jsonify()는 content-type: application/json; charset=UTF-8 헤더를 자동으로 추가해준다
     # 혹시 모를 스크립트 공격 예방을 위해 적절한 탈출문자 처리도 되므로 jsonify()가 선호된다
     # {\"월\":\"09\",\"일\":\"01\",\"시작시간\":\"14:00\",\"어웨이팀명\":\"롯데\",\"홈팀명\":\"두산\",\"어웨이점수\":\"4\",\"홈점수\":\"3\",\"비고\":\"-\",\"경기코드\":\"20240907-KIA-1700\"}}
+    print(json.loads(df.to_json(orient='records', force_ascii=False)))
     return jsonify(json.loads(df.to_json(orient='records', force_ascii=False)))
 
 

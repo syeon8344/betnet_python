@@ -26,7 +26,7 @@ def add_match_code(df: pd.DataFrame, date: str):
     # 경기고유코드: 20240901-롯데-1400, 연월일-홈팀명-시작시간
     # apply(): 매 행마다 함수 적용, lambda 함수로 매 행마다 경기 고유코드를 생성해서 match_code 열의 내용으로 입력
     df["경기코드"] = df.apply(
-        lambda row: f"{date}{row["일"]}-{row["홈팀명"]}-{row["시작시간"].replace(":", "")}",
+        lambda row: f"{date}{row['일']}-{row['홈팀명']}-{row['시작시간'].replace(':', '')}",
         axis=1
     )
 
@@ -178,11 +178,11 @@ def add_win_calc(df: pd.DataFrame):
     df_latest = add_standardized_data(df_l)
 
     df["어웨이예측순위"] = df.apply(
-        lambda row: round(lr.predict(df_latest.loc[df_latest["팀명"] == row["어웨이팀명"], x.columns])[0], 3),  # 예측할 입력 데이터를 배열로 변환
+        lambda row: round(lr.predict(df_latest.loc[df_latest['팀명'] == row['어웨이팀명'], x.columns])[0], 3),  # 예측할 입력 데이터를 배열로 변환
         axis=1  # 행 단위로 적용
     )
     df["홈예측순위"] = df.apply(
-        lambda row: round(lr.predict(df_latest.loc[df_latest["팀명"] == row["홈팀명"], x.columns])[0], 3),
+        lambda row: round(lr.predict(df_latest.loc[df_latest['팀명'] == row['홈팀명'], x.columns])[0], 3),
         # 예측할 입력 데이터를 배열로 변환
         axis=1  # 행 단위로 적용
     )
