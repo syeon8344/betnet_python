@@ -19,16 +19,15 @@ CRAWL_LATEST = 'crawl_csv/crawl_latest.csv'
 
 cur_year = datetime.datetime.now().year
 
+
 # 페이지 로드 상태 확인: 웹페이지 로드 오류시 CSV 파일 수정하지 않고 False 반환하도록
 def is_page_loaded(wd: webdriver.chrome):
     return wd.execute_script("return document.readyState;") == "complete"
 
 
-# 넥센, HERO -> 키움
+# 넥센, HERO -> 키움, SK -> SSG
 def update_team_name(df: pd.DataFrame):
-    # .isin(["넥센", "HERO"]): "팀명" 열의 각 값이 리스트 ["넥센", "HERO"]에 포함되어 있는지 불리언
-    # , "팀명": 앞이 True일 경우 "팀명" 열을 = 뒤의 값으로 바꾼다
-    df.loc[df["팀명"].isin(["넥센", "HERO"]), "팀명"] = "키움"
+    df['팀명'] = df['팀명'].replace({"HERO": "키움", "넥센": "키움", "SK": "SSG"})
     return df
 
 
@@ -90,6 +89,8 @@ def get_team_hitter_table(wd: webdriver.chrome, include_old_data=False):
         df_table_2.drop(columns=['순위', '팀명', 'AVG'], inplace=True)
         df_hitter = pd.concat([df_table_1, df_table_2], axis=1)
         # print(df_hitter)
+        # 팀명 정리
+        df_hitter = update_team_name(df_hitter)
         # 데이터프레임 객체를 CSV 파일로 저장
         df_hitter.to_csv(f"crawl_csv/hitter/팀기록_타자_{year}.csv", mode='w', encoding='utf-8', index=False)
 
@@ -166,6 +167,8 @@ def get_team_pitcher_table(wd: webdriver.chrome, include_old_data=False):
             df_pitcher = cds.add_pitcher_metrics(df)
         except Exception as e:
             print(e)
+        # 팀명 정리
+        df_pitcher = update_team_name(df_pitcher)
         df_pitcher.to_csv(f"crawl_csv/pitcher/팀기록_투수_{year}.csv", mode='w', encoding='utf-8', index=False)
 
     if include_old_data:
@@ -228,6 +231,8 @@ def get_team_runner_table(wd: webdriver.chrome, include_old_data=False):
         # 열 레이블 리스트와 데이터를 DataFrame으로 합치기
         df_runner = pd.DataFrame(data, columns=header, index=None)
         # print(df_runner)
+        # 팀명 정리
+        df_runner = update_team_name(df_runner)
         # DataFrame 객체를 CSV 파일로 저장
         df_runner.to_csv(f"crawl_csv/runner/팀기록_주루_{year}.csv", mode='w', encoding='utf-8', index=False)
 
@@ -389,6 +394,8 @@ def get_team_rank(wd: webdriver.chrome, include_old_data=False):
         # 열 레이블 리스트와 데이터를 DataFrame으로 합치기
         df_rank = pd.DataFrame(data, columns=header, index=None)
         # print(df_runner)
+        # 팀명 정리
+        df_rank = update_team_name(df_rank)
         # DataFrame 객체를 CSV 파일로 저장
         df_rank.to_csv(f"crawl_csv/rank/팀순위_{year}.csv", mode='w', encoding='utf-8', index=False)
 
@@ -429,7 +436,7 @@ def get_kbreport_crawl(wd: webdriver.chrome, include_old_data=False):
         data = []
         # 테이블 찾기
         table = soup.find("table")
-        print(table)
+        # print(table)
         # 테이블의 헤더와 데이터 추출
         header = [th.get_text() for th in table.find_all('th')]
         header[0] = "순위"  # "#" 레이블을 "순위"
@@ -438,12 +445,12 @@ def get_kbreport_crawl(wd: webdriver.chrome, include_old_data=False):
         for row in rows[1:-1]:  # 헤더와 합계 열 제외
             tds = row.find_all('td')
             # print(tds)
-            # 테이블 행마다 리스트로 정보 추출
+            # 테이블 행마다 리스트로 정보 추출, 영문 팀명은 항상 대문자로
             data.append([td.get_text().strip().replace("\"", "").upper() for td in tds])
         # 열 레이블 리스트와 데이터를 DataFrame으로 합치기
         df_kbreport = pd.DataFrame(data, columns=header, index=None)
-        df_kbreport.apply(lambda x: "키움")
-        # print(df_runner)
+        # 팀명 정리
+        df_kbreport = update_team_name(df_kbreport)
         # DataFrame 객체를 CSV 파일로 저장
         df_kbreport.to_csv(f"crawl_csv/kbreport/kbreport_{year}.csv", mode='w', encoding='utf-8', index=False)
 
@@ -451,10 +458,10 @@ def get_kbreport_crawl(wd: webdriver.chrome, include_old_data=False):
         # 불린 True값일 시 2015년부터 2024년까지의 데이터 크롤링
         for i in range(2015, 2025):
             table_crawl(i)
-        print("2015년부터의 팀 순위 크롤링 성공.")
+        print("2015년부터의 KBReport 크롤링 성공.")
     else:
         table_crawl()
-        print("팀 순위 크롤링 성공.")
+        print("KBReport 크롤링 성공.")
 
 
 # 월간 스케줄표: 매일 갱신하면 매일 업데이트된 경기 결과도 가져올 수 있다.
@@ -512,20 +519,8 @@ def get_monthly_schedule(wd: webdriver.chrome):
     df_monthly_schedule = cds.add_win_calc(df_match_code)
     # print(df_monthly_schedule)
 
-    # 우천 취소 경기가 있어도 기존 경기들 인덱스가 꼬이지 않도록 설정
-    # 기존 CSV 존재시 현재 크롤링된 DataFrame과 비교, 새로 추가된 경기들( = 우천 취소로 인한 새 경기 등)을 골라내 맨 뒤로
-    try:
-        # dtype=str: 모든 열의 타입을 str(object)로 설정, 월 열 내용 오류 방지
-        df_old = pd.read_csv(f'crawl_csv/monthly_schedule/월간경기일정_{date}.csv', encoding='utf-8', dtype=str)
-        # 기존 CSV의 DataFrame에 현재 DataFrame을 합치고 (인덱스 제외) 중복 행을 제거 = 새로 추가된 경기들
-        new_matches = pd.concat([df_old, df_monthly_schedule]).drop_duplicates(keep=False)
-        df_combined = pd.concat([df_old, new_matches], ignore_index=True)
-        # 인덱스 재설정 (하지 않으면 기존 인덱스가 유지된다)
-        df_combined = df_combined.reset_index(drop=True)
-        df_combined.to_csv(f'crawl_csv/monthly_schedule/월간경기일정_{date}.csv', encoding='utf-8', index=False)
-    except FileNotFoundError:
-        # 이전 CSV 파일이 없으므로 바로 저장
-        df_monthly_schedule.to_csv(f'crawl_csv/monthly_schedule/월간경기일정_{date}.csv', encoding="utf-8", index=False)
+    # CSV 파일로 저장
+    df_monthly_schedule.to_csv(f'crawl_csv/monthly_schedule/월간경기일정_{date}.csv', encoding="utf-8", index=False)
     print("월간 경기 일정 크롤링 성공.")
 
 
@@ -582,9 +577,9 @@ if __name__ == "__main__":
     options = Options()  # 웹드라이버 설정
     options.add_argument("--headless")  # 브라우저 GUI를 표시하지 않음
     options.add_argument("--no-sandbox")  # 보안 샌드박스 비활성화
-    wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
+    wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)
     # include_old_data=True일 시 2015년도 팀 타자/투수/주루 데이터부터 크롤링
-    # do_crawl(include_old_data=False)
+    do_crawl(include_old_data=True)
     # get_monthly_schedule(wd)
-    get_kbreport_crawl(wd, True)
-    # wd.quit()
+    # get_kbreport_crawl(wd, True)
+    wd.quit()
