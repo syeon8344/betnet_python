@@ -10,6 +10,7 @@ app = Flask(__name__)  # Flask 객체 생성
 CORS(app)
 from routing import *  # app 활성화 이후 app.route 목록 import
 from controller.SurveyController import *  # app 활성화 이후 SurveyController import
+from controller.KBOarticle_controller import *
 
 # 상태 파일 경로: 마지막으로 앱이 실행된 시간 기록
 CRAWL_LATEST = 'crawl_csv/crawl_latest.csv'
