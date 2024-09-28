@@ -21,17 +21,20 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
+import undetected_chromedriver as uc
 
 # webdriver 객체 생성
 options = Options()  # 웹드라이버 설정
 options.add_argument("--headless")  # 브라우저 GUI를 표시하지 않음
 options.add_argument("--no-sandbox")  # 보안 샌드박스 비활성화
+options.add_argument('user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36')
+
 wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)
 # 메인페이지 kbo 관련 기사
 def getKBOnews(result):
     for i in range(1 ,46):
         wd.get(f"https://search.daum.net/search?nil_suggest=btn&w=news&DA=PGD&cluster=y&q=kbo&p={i}")
-        time.sleep(1)
+        # time.sleep(1)
         try:
             html = wd.page_source
             soupCB1 = BeautifulSoup(html, "html.parser")
@@ -40,7 +43,7 @@ def getKBOnews(result):
             news_list = soupCB1.select_one(".c-list-basic")
             # print(news_list)
             for row in news_list.select("li"):
-                div = row.select("div");
+                div = row.select(".c-item-content div");
                 print(len(div))
                 # if len(div) == 3 :  # 만약에 열이 개수가 0개이면 div 깨짐
                 #     continue    # 가장 가까운 반복문으로 이동 , 아래 코드는 실행되지 않는다.
@@ -57,7 +60,7 @@ def getKBOnews(result):
                 url = content_box.select_one(".item-title a")["href"]
                 # print(f'기사 링크 : {url}')
                 title = content_box.select_one(".item-title a").text.strip()
-                # print(f'기사 제목 : {title}')
+                print(f'기사 제목 : {title}')
                 thumb = content_box.select_one(".item-thumb img")["src"]
                 if "data:image" in thumb:
                     thumb = content_box.select_one(".item-thumb img").get("data-original-src")
