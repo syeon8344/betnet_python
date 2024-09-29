@@ -500,4 +500,132 @@ def hypoHome () :
     print( home_data['홈승률'] )
     print(home_data['방문승률'])
 
-hypoHome ()
+# hypoHome ()
+
+
+#######################################################################################################################찬스 상황 일때 결정력이 좋을수록[득점권 타율(RISP)이 좋을수록] 승률이 더 높다.
+def hypoRisp() :
+    risp_data = pd.read_csv("crawl_csv/hitter/팀기록_타자_2024.csv", header=0, engine="python")
+    risp_data = risp_data[["팀명","RISP"]]
+    print(risp_data)
+
+
+########################타자는 승률이 없어서 타자꺼 할때마다 가져오는 승률 구하기 코드
+    # 승 수(W) 데이터 읽기
+    win_data = pd.read_csv("crawl_csv/kbreport/kbreport_2024.csv", header=0, engine="python")
+    # print(win_data)
+    win_data = win_data[["팀명", "경기", "승"]]
+    # 승률 계산
+    win_data['승률'] = win_data['승'] / win_data['경기']  # 승률 계산
+    win_data['승률'] = win_data['승률'].round(3)  # 소수점 반올림
+
+    merge_data = risp_data.merge(win_data[["팀명","승률"]], on="팀명")
+    print(merge_data)
+
+    회귀모형수식 = "승률 ~ RISP"
+    선형회귀모델 = ols(회귀모형수식, data=merge_data).fit()
+
+    print(선형회귀모델.summary())
+
+    '''
+                                    OLS Regression Results                            
+    ==============================================================================
+    Dep. Variable:                     승률   R-squared:                       0.194
+    Model:                            OLS   Adj. R-squared:                  0.094
+    Method:                 Least Squares   F-statistic:                     1.930
+    Date:                Sun, 29 Sep 2024   Prob (F-statistic):              0.202
+    Time:                        16:58:17   Log-Likelihood:                 16.099
+    No. Observations:                  10   AIC:                            -28.20
+    Df Residuals:                       8   BIC:                            -27.59
+    Df Model:                           1                                         
+    Covariance Type:            nonrobust                                         
+    ==============================================================================
+                     coef    std err          t      P>|t|      [0.025      0.975]
+    ------------------------------------------------------------------------------
+    Intercept     -0.1254      0.445     -0.282      0.785      -1.152       0.901
+    RISP           2.1828      1.571      1.389      0.202      -1.440       5.806
+    ==============================================================================
+    Omnibus:                        1.397   Durbin-Watson:                   2.609
+    Prob(Omnibus):                  0.497   Jarque-Bera (JB):                0.718
+    Skew:                           0.063   Prob(JB):                        0.698
+    Kurtosis:                       1.693   Cond. No.                         99.2
+    ==============================================================================
+    '''
+
+    # 가설 검증
+    if 선형회귀모델.pvalues["RISP"] < 0.05:
+        print(f"찬스 상황 일때 결정력이 좋을수록[득점권 타율(RISP)이 좋을수록] 승률이 더 높다. p-value: {선형회귀모델.pvalues['RISP']:.5f}")
+    else:
+        print(f"찬스 상황 일때 결정력이 좋다고[득점권 타율(RISP)이 좋을수록] 승률이 더 높진 않다. p-value: {선형회귀모델.pvalues['RISP']:.5f}")
+
+# hypoRisp()
+
+########################################################################################################################주루플레이를 잘하는 팀일수록[도루 성공률(SB)이 좋을수록] 승률이 더 높다
+
+def hypoSb() :
+    sbData = pd.read_csv("crawl_csv/runner/팀기록_주루_2024.csv", header=0, engine="python")
+    sbData = sbData[["팀명","SB%"]]
+    sbData["SB"] = sbData["SB%"]
+
+    print(sbData)
+
+    ########################주루는 승률이 없어서 타자꺼 할때마다 가져오는 승률 구하기 코드
+    # 승 수(W) 데이터 읽기
+    win_data = pd.read_csv("crawl_csv/kbreport/kbreport_2024.csv", header=0, engine="python")
+    # print(win_data)
+    win_data = win_data[["팀명", "경기", "승"]]
+    # 승률 계산
+    win_data['승률'] = win_data['승'] / win_data['경기']  # 승률 계산
+    win_data['승률'] = win_data['승률'].round(3)  # 소수점 반올림
+
+    merge_data = sbData.merge(win_data[["팀명","승률"]], on="팀명")
+    print(merge_data)
+
+    회귀모형수식 = "승률 ~ SB"
+    선형회귀모델 = ols(회귀모형수식, data=merge_data).fit()
+
+    print(선형회귀모델.summary())
+
+    '''
+         OLS Regression Results                            
+    ==============================================================================
+    Dep. Variable:                     승률   R-squared:                       0.010
+    Model:                            OLS   Adj. R-squared:                 -0.114
+    Method:                 Least Squares   F-statistic:                   0.07883
+    Date:                Sun, 29 Sep 2024   Prob (F-statistic):              0.786
+    Time:                        17:06:31   Log-Likelihood:                 15.068
+    No. Observations:                  10   AIC:                            -26.14
+    Df Residuals:                       8   BIC:                            -25.53
+    Df Model:                           1                                         
+    Covariance Type:            nonrobust                                         
+    ==============================================================================
+                     coef    std err          t      P>|t|      [0.025      0.975]
+    ------------------------------------------------------------------------------
+    Intercept      0.5580      0.234      2.387      0.044       0.019       1.097
+    SB            -0.0009      0.003     -0.281      0.786      -0.008       0.006
+    ==============================================================================
+    Omnibus:                        0.879   Durbin-Watson:                   1.052
+    Prob(Omnibus):                  0.644   Jarque-Bera (JB):                0.564
+    Skew:                           0.516   Prob(JB):                        0.754
+    Kurtosis:                       2.462   Cond. No.                         921.
+    ==============================================================================
+    '''
+    # 가설 검증
+    if 선형회귀모델.pvalues["SB"] < 0.05:
+        print(f"주루플레이를 잘하는 팀일수록[도루 성공률(SB)이 좋을수록] 승률이 더 높다. p-value: {선형회귀모델.pvalues['SB']:.5f}")
+    else:
+        print(f"주루플레이를 잘하는 팀이라도[도루 성공률(SB)이 좋을수록] 승률이 더 높진 않다 p-value: {선형회귀모델.pvalues['SB']:.5f}")
+
+hypoSb()
+
+
+
+
+
+
+
+
+
+
+
+
