@@ -4,6 +4,8 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 # 투수 기록 CSV에 삼진율, 볼넷삼진비율 계산해서 CSV에 포함: SO/TBF*100, TBF = IP × 2.9(병살 등 고려) + BB + H + HBP
@@ -165,13 +167,13 @@ def add_win_calc(df: pd.DataFrame):
     mse = mean_squared_error(y_test, y_predict)
     rmse = np.sqrt(mse)
     r2 = r2_score(y_test, y_predict)
-    print("=== 승률/배당률 선형 회귀 모델 평가 지표 ===")
-    print(f"MSE: {mse:.2f}, RMSE: {rmse:.2f}, R^2: {r2:.2f}")
-    print(f"y 절편: {np.round(lr.intercept_, 2)}, 회귀계수: {np.round(lr.coef_, 2)}")
-    coef = pd.Series(data=np.round(lr.coef_, 2), index=x.columns)
-    coef.sort_values(ascending=False)
-    print(coef)
-    print("========================================")
+    # print("=== 승률/배당률 선형 회귀 모델 평가 지표 ===")
+    # print(f"MSE: {mse:.2f}, RMSE: {rmse:.2f}, R^2: {r2:.2f}")
+    # print(f"y 절편: {np.round(lr.intercept_, 2)}, 회귀계수: {np.round(lr.coef_, 2)}")
+    # coef = pd.Series(data=np.round(lr.coef_, 2), index=x.columns)
+    # coef.sort_values(ascending=False)
+    # print(coef)
+    # print("========================================")
 
     # 각 행에 대해 예측 수행
     # row: DataFrame의 각 행을 나타내는 매개변수
@@ -179,7 +181,8 @@ def add_win_calc(df: pd.DataFrame):
     # df_latest = 타자/투수/주루/순위 정보가 합쳐진 작년도 DataFrame
     df_l = year_df_list[-2]
     df_latest = add_standardized_data(df_l)
-
+    # TODO: 예측 순위가 너무 차이나서 배당률이 마이너스일 경우 + 낮은 쪽이 1.1 미만일 경우 1.1로 맞추기?
+    # 9-10, 9-28 한화 SSG 경기 참고
     df["어웨이예측순위"] = df.apply(
         # 예측할 입력 데이터를 배열로 변환
         lambda row: round(lr.predict(df_latest.loc[df_latest['팀명'] == row['어웨이팀명'], x.columns])[0], 3),
@@ -225,6 +228,20 @@ def add_win_calc(df: pd.DataFrame):
     # 승률 열 등록 (2-배당률 * 100)
     df["어웨이승률"] = round(2 - df["어웨이배당률"], 2)
     df["홈승률"] = round(2 - df["홈배당률"], 2)
+
+    # 분석 시각화 1. 상관관계 히트맵
+    df_view = x
+    df_view['순위'] = y
+    plt.figure(figsize=(12, 8))
+    correlation_matrix = df_view.corr()
+    sns.heatmap(correlation_matrix, annot=True, fmt=".2f", cmap='coolwarm')
+    plt.title('Correlation Heatmap')
+    plt.show()
+
+    # 분석 시각화 2. 산점도 행렬
+    sns.pairplot(df_view, vars=df_view.columns[:5].tolist() + ['target'])  # 첫 5개 독립변수와 종속변수
+    plt.show()
+
     return df
 
 

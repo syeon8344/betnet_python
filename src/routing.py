@@ -56,6 +56,34 @@ def get_schedule():
     # 날짜별로 행이 있는지 확인
     date_counts = filtered_df['날짜'].value_counts()
     available_dates = sorted(date_counts[date_counts > 0].index)
+
+    # 경기 내역 있는 날짜가 이틀 미만 -> 다음 달 데이터 로드
+    if len(available_dates) < 2:
+        # 다음 달 날짜 계산
+        next_month = int(month) + 1
+        next_year = int(year)
+        if next_month > 12:
+            next_month = 1
+            next_year += 1
+
+        next_csv_date = f'{next_year}{next_month:02}'
+
+        # 다음 달 데이터 읽기
+        next_df = pd.read_csv(f'crawl_csv/monthly_schedule/월간경기일정_{next_csv_date}.csv', encoding='utf-8',
+                              dtype={"월": str, "일": str})
+        print(next_df)
+        next_df['날짜'] = str(next_year) + '-' + next_df['월'] + '-' + next_df['일']
+
+        # 다음 달 데이터도 필터링
+        next_filtered_df = next_df[next_df['날짜'] >= f"{next_year}-{next_month:02}-01"]
+
+        # 기존 데이터와 합치기
+        filtered_df = pd.concat([filtered_df, next_filtered_df], ignore_index=True)
+
+        # 날짜별로 행이 있는지 확인
+        date_counts = filtered_df['날짜'].value_counts()
+        available_dates = sorted(date_counts[date_counts > 0].index)
+
     # 결과 DataFrame 생성
     result = []
     for date in available_dates[:2]:  # 이틀치만 가져오기
