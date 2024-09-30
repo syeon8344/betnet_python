@@ -92,14 +92,13 @@ for eachPlayer in players:
     # print("Name:", name)
 
             # 급여 추출
-            salary_element = wd.find_element(By.XPATH,
-                                             '//*[@id="cphContents_cphContents_cphContents_playerProfile_lblSalary"]')
+            salary_element = wd.find_element(By.XPATH,'//*[@id="cphContents_cphContents_cphContents_playerProfile_lblSalary"]')
             salary_text = salary_element.text
 
             if salary_text:  # 텍스트가 있는 경우에만 처리
                 if salary_text.endswith('달러'):
                     salary_value = salary_text[:-2]  # 마지막 두 글자 제거
-                    salary_value = int(salary_value) //10  # 백만원으로 변환
+                    salary_value = int(salary_value) //10  # 한화로 변환
                 else:
                     salary_value = salary_text[:-2]  # 마지막 두 글자만 제거
                     salary_value = int(salary_value)  # 정수로 변환
@@ -134,8 +133,7 @@ for eachPlayer in players:
     # print("Name:", name)
 
             # 급여 추출
-            salary_element = wd.find_element(By.XPATH,
-                                             '//*[@id="cphContents_cphContents_cphContents_playerProfile_lblSalary"]')
+            salary_element = wd.find_element(By.XPATH,'//*[@id="cphContents_cphContents_cphContents_playerProfile_lblSalary"]')
             salary_text = salary_element.text
 
             if salary_text:  # 텍스트가 있는 경우에만 처리
