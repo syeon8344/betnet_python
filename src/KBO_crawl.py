@@ -263,7 +263,11 @@ def get_daily_data(wd: webdriver.chrome):
     date_string = wd.find_element(By.XPATH, '//*[@id="lblGameDate"]').text
     date_formatted = date_string[:10].replace('.', '-')  # 2024.09.06(요일) -> 2024-09-06
     # 게임센터 페이지의 경기 칸 수
-    game_list = wd.find_elements(By.CLASS_NAME, 'game-cont')
+    try:
+        game_list = wd.find_elements(By.CLASS_NAME, 'game-cont')
+    except Exception as e:
+        print("오늘 경기가 없습니다.")
+        return
     # print(len(num))  # 2024-09-06, (경기수) 4 출력
     # 데이터프레임 열 이름 목록
     columns_pitcher = ['일자', '홈/어웨이', '팀명', '선발투수', '시즌평균자책점', '시즌WAR', '시즌경기', '시즌선발평균이닝', '시즌QS', '시즌WHIP',
@@ -549,9 +553,11 @@ def do_crawl(include_old_data=False):
         get_team_hitter_table(wd, include_old_data)
         get_team_pitcher_table(wd, include_old_data)
         get_team_runner_table(wd, include_old_data)
-        get_daily_data(wd)
+        # 10월 경기가 없어 임시 조정
+        # get_daily_data(wd)
         get_team_rank(wd, include_old_data)
         get_kbreport_crawl(wd, include_old_data)
+        # 10월 경기가 없어 임시 조정
         get_monthly_schedule(wd)
         record_time()
         print("크롤링 작업 성공.")
@@ -580,6 +586,4 @@ if __name__ == "__main__":
     wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)
     # include_old_data=True일 시 2015년도 팀 타자/투수/주루 데이터부터 크롤링
     do_crawl(include_old_data=True)
-    # get_monthly_schedule(wd)
-    # get_kbreport_crawl(wd, True)
     wd.quit()
