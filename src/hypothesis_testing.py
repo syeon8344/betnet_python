@@ -1,6 +1,13 @@
 import pandas as pd
 from statsmodels.formula.api import ols
 
+from flask import Flask,jsonify
+app = Flask( __name__ )
+
+from flask_cors import CORS
+CORS( app ) # 모든 경로에 대해 CORS 허용
+
+
 
 
 ################################################################################### 중간계투의 실력이 높을수록[홀드(HLD)가 많을수록] 승률이 더 높다.
@@ -48,11 +55,15 @@ def hypoHld() :
     Kurtosis:                       2.475   Cond. No.                         282.
     ==============================================================================
     '''
-    if 선형회귀모델.pvalues["HLD"] < 0.05 :
-        print(f"중간계투의 실력이 높을수록[홀드가 많을수록] 승률이 더 높다 p > {선형회귀모델.pvalues["HLD"]}")
+    # 가설 검증
+    if 선형회귀모델.pvalues["HLD"] < 0.05:
+        print(f"중간계투의 실력이 높을수록[홀드가 많을수록] 승률이 더 높다 p-value: {선형회귀모델.pvalues['HLD']:.5f}")
     else:
-        print(f"중간계투의 실력이 높다고 해도[홀드(HLD)가 많아도] 승률이 더 높은건 아니다. p < {선형회귀모델.pvalues["HLD"]}")
-    # 이 가설은 유효합니다 p > 0.03235630867777166
+        print(f"중간계투의 실력이 높다고 해도[홀드(HLD)가 많아도] 승률이 더 높은건 아니다. p-value: {선형회귀모델.pvalues['HLD']:.5f}")
+        # 이 가설은 유효합니다 p > 0.03235630867777166
+
+    # 가설 return
+    return {"가설결과": "중간계투의 실력이 높을수록[홀드가 많을수록] 승률이 더 높다."}
 
 # hypoHld()
 
@@ -116,7 +127,8 @@ def hypoSac() :
         print(f"팀플레이를 많이 하는 팀일수록[희생번트 성공률이 높을수록] 승률이 더높다. p-value: {선형회귀모델.pvalues['SAC']:.5f}")
     else:
         print(f"팀플레이를 많이 하는 팀이라고[희생번트 성공률이 높다고] 승률이 더 높은건 아니다. p-value: {선형회귀모델.pvalues['SAC']:.5f}")
-    # 이 가설은 유효하지 않습니다. p-value: 0.29604
+
+    return {"가설결과": "팀플레이를 많이 하는 팀이라고[희생번트 성공률이 높다고] 승률이 더 높은건 아니다."}
 
 # hypoSac()
 
@@ -175,6 +187,7 @@ def hypoRecent() :
         print(f"최근 10경기 승률이 높다고 전체적인 승률이 더 높지는 않다. p-value: {선형회귀모델.pvalues['최근10경기승률']:.5f}")
 
     # 이 가설은 유효하지 않습니다. p-value: 0.05369
+    return {"가설결과": "최근 10경기 승률이 높다고 전체적인 승률이 더 높지는 않다."}
 
 # 최근 10경기에서 승수 추출 함수
 def extract_wins(record):
@@ -212,6 +225,7 @@ def hypoEra() :
     else:
         print(f"팀의 투수의 실력이 좋다고(ERA가 낮다고)승률이 더 높은건 아니다. p-value: {선형회귀모델.pvalues['ERA_minus']:.5f}")
     #팀의 투수의 실력이 좋을수록(ERA가 낮을수록)승률이 더 높다. p-value: 0.01146
+    return {"가설결과": "팀의 투수의 실력이 좋을수록(ERA가 낮을수록)승률이 더 높다."}
 
 # hypoEra()
 
@@ -277,6 +291,7 @@ def hypoSo() :
     else:
         print(f"타자의 선구안이 좋다고[삼진(SO)을 당한 수가 낮다고] 승률이 더 높은건 아니다. p-value: {선형회귀모델.pvalues['SO_minus']:.5f}")
     #타자의 선구안이 좋을수록[삼진(SO)을 당한 수가 낮을수록] 승률이 더 높다. p-value: 0.04964
+    return {"가설결과": "타자의 선구안이 좋을수록[삼진(SO)을 당한 수가 낮을수록] 승률이 더 높다."}
 
 # hypoSo()
 
@@ -341,6 +356,8 @@ def hypoPhBa() :
     else:
         print(f"팀의 작전 성공률[대타타율(PH-BA)]이 높다고 승률이 더 높은건 아니다. p-value: {선형회귀모델.pvalues['PH_BA']:.5f}")
     # 팀의 작전 성공률[대타타율(PH-BA)]이 높다고 승률이 더 높은건 아니다. p-value: 0.08368
+    return {"가설결과": "팀의 작전 성공률[대타타율(PH-BA)]이 높다고 승률이 더 높은건 아니다."}
+
 # hypoPhBa()
 
 
@@ -390,6 +407,7 @@ def hypoNp() :
     else:
         print(f"투수가 공을 많이 던질수록 [투구수(NP)가 많을수록] 승률이 더 낲다. p-value: {선형회귀모델.pvalues['NP']:.5f}")
     #투수가 공을 많이 던질수록 [투구수(NP)가 많을수록] 승률이 더 낲다. p-value: 0.13767
+    return {"가설결과": "투수가 공을 많이 던질수록 [투구수(NP)가 많을수록] 승률이 더 높다."}
 
 #hypoNp()
 
@@ -449,6 +467,7 @@ def hypoHr () :
     else:
         print(f"팀의 거포형 타자들이 많아도[안타(H)보다 홈런(HR)의 비율이 높아도] 승률에 영향을 끼치진 않는다. p-value: {선형회귀모델.pvalues['안타홈런비율']:.5f}")
     # 팀의 거포형 타자들이 많아도[안타(H)보다 홈런(HR)의 비율이 높아도] 승률에 영향을 끼치진 않는다. p-value: 0.30882
+    return {"가설결과": "팀의 거포형 타자들이 많아도[안타(H)보다 홈런(HR)의 비율이 높아도] 승률에 영향을 끼치진 않는다."}
 
 #hypoHr()
 
@@ -557,6 +576,7 @@ def hypoRisp() :
         print(f"찬스 상황 일때 결정력이 좋을수록[득점권 타율(RISP)이 좋을수록] 승률이 더 높다. p-value: {선형회귀모델.pvalues['RISP']:.5f}")
     else:
         print(f"찬스 상황 일때 결정력이 좋다고[득점권 타율(RISP)이 좋을수록] 승률이 더 높진 않다. p-value: {선형회귀모델.pvalues['RISP']:.5f}")
+    return {"가설결과": "찬스 상황 일때 결정력이 좋다고[득점권 타율(RISP)이 좋을수록] 승률이 더 높진 않다."}
 
 # hypoRisp()
 
@@ -615,12 +635,29 @@ def hypoSb() :
         print(f"주루플레이를 잘하는 팀일수록[도루 성공률(SB)이 좋을수록] 승률이 더 높다. p-value: {선형회귀모델.pvalues['SB']:.5f}")
     else:
         print(f"주루플레이를 잘하는 팀이라도[도루 성공률(SB)이 좋을수록] 승률이 더 높진 않다 p-value: {선형회귀모델.pvalues['SB']:.5f}")
+    return {"가설결과": "주루플레이를 잘하는 팀이라도[도루 성공률(SB)이 좋을수록] 승률이 더 높진 않다."}
 
-hypoSb()
+# hypoSb()
 
 
+@app.route("/hypo" , methods=["GET"] )
+def hypo_js():
+    results = {
+        "가설1": hypoHld(),
+        "가설2": hypoSac(),
+        "가설3": hypoRecent(),
+        "가설4": hypoEra(),
+        "가설5": hypoSo(),
+        "가설6": hypoPhBa(),
+        "가설7": hypoNp(),
+        "가설8": hypoHr(),
+        "가설9": hypoRisp(),
+        "가설10": hypoSb()
+    }
+    return jsonify(results)  # JSON 형식으로 반환
 
-
+if __name__ == '__main__':
+    app.run(debug=True)
 
 
 
