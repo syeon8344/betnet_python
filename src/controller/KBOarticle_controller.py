@@ -2,14 +2,16 @@ from flask import request
 
 from src.app import app
 from src.service.KBOarticle_service import *
+from src.service.article_service import *
 
 @app.route("/article/kbo" , methods = ['get'])
 def getKboArticle():
-    result = []
-    getKBOnews(result)
-    colsNames = ['media_company_url', 'media_company_name', 'media_company_thumb', 'url', 'title' , 'thumb']
-    print(result)
-    final_result = list_to_df(result , colsNames)
-    get_keywords(final_result)
-    return final_result
 
+    jsonResult = main(srcText)  # [code1] 메소드실행
+    print(f'jsonResult >> {jsonResult}')
+    keyword_result = get_keyword(jsonResult)
+    print(f'keyword_result >> {keyword_result}')
+    jsonResult.append(keyword_result)
+    print(jsonResult)
+    print(len(jsonResult))
+    return jsonResult
