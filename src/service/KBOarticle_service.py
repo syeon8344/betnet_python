@@ -4,7 +4,7 @@
 
 KBO 메인페이지 5~10개
 
-썸네일 타이틀 링크 언론사
+타이틀 링크 언론사
 
 타이틀 안에 링크 -> 클릭하면 본문으로 이동
 '''
@@ -21,13 +21,14 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
-import undetected_chromedriver as uc
 
 # webdriver 객체 생성
 options = Options()  # 웹드라이버 설정
+
 options.add_argument("--headless")  # 브라우저 GUI를 표시하지 않음
 options.add_argument("--no-sandbox")  # 보안 샌드박스 비활성화
-options.add_argument('user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36')
+options.add_argument("--disable-gpu")
+
 
 wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)
 # 메인페이지 kbo 관련 기사
@@ -38,12 +39,12 @@ def getKBOnews(result):
         try:
             html = wd.page_source
             soupCB1 = BeautifulSoup(html, "html.parser")
-            print(soupCB1.prettify())
+            # print(soupCB1.prettify())
             # 뉴스 리스트
             news_list = soupCB1.select_one(".c-list-basic")
             # print(news_list)
             for row in news_list.select("li"):
-                div = row.select(".c-item-content div");
+                div = row.select(".c-item-content div")
                 print(len(div))
                 # if len(div) == 3 :  # 만약에 열이 개수가 0개이면 div 깨짐
                 #     continue    # 가장 가까운 반복문으로 이동 , 아래 코드는 실행되지 않는다.
