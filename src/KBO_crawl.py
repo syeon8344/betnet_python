@@ -558,7 +558,7 @@ def do_crawl(include_old_data=False):
         get_team_rank(wd, include_old_data)
         get_kbreport_crawl(wd, include_old_data)
         # 10월 경기가 없어 임시 조정
-        get_monthly_schedule(wd)
+        # get_monthly_schedule(wd)
         record_time()
         print("크롤링 작업 성공.")
         wd.quit()  # 크롤링 종료 후 웹드라이버 닫기
