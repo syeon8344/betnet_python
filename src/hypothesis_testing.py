@@ -1,11 +1,8 @@
 import pandas as pd
+from flask import jsonify
 from statsmodels.formula.api import ols
 
-from flask import Flask,jsonify
-app = Flask( __name__ )
-
-from flask_cors import CORS
-CORS( app ) # 모든 경로에 대해 CORS 허용
+from app import app
 
 
 
