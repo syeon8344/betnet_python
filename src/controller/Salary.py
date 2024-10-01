@@ -1,6 +1,5 @@
 from flask import request ,jsonify
 from src.app import app
-from src.service.Playercrawl import *
 from src.service.salary_service import *
 
 @app.route("/salary",methods=['GET'])
