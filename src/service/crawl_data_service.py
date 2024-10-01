@@ -6,6 +6,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 import seaborn as sns
 
 
@@ -151,7 +152,11 @@ def add_win_calc(df: pd.DataFrame):
 
     # 시각화를 위해 df_data csv로 내보내기
     df_data = add_standardized_data(df_d)
-    df_data.to_csv("df_data.csv", encoding="utf-8", index=False)
+    try:
+        df_data.to_csv("df_data.csv", mode="w", encoding="utf-8", index=False)
+        print("데이터가 성공적으로 저장되었습니다.")
+    except Exception as e:
+        print(f"CSV 저장 중 오류 발생: {e}")
 
     # 선형 회귀 모델
     # 독립 변수와 종속 변수 분리
@@ -166,8 +171,12 @@ def add_win_calc(df: pd.DataFrame):
     lr.fit(x_train, y_train)
 
     # 시각화를 위해 훈련된 선형회귀모델 저장
-    with open('linear_model.pkl', 'wb') as file:
-        pickle.dump(lr, file)
+    try:
+        with open('linear_model.pkl', 'wb') as file:
+            pickle.dump(lr, file)
+        print("모델이 성공적으로 저장되었습니다.")
+    except Exception as e:
+        print(f"모델 저장 중 오류 발생: {e}")
 
     # 각 행에 대해 예측 수행
     # row: DataFrame의 각 행을 나타내는 매개변수
@@ -233,12 +242,22 @@ def add_win_calc(df: pd.DataFrame):
 
 # 모델 시각화
 def visualize_model():
+    print("visualize_model")
     # 데이터프레임 로드
     df_data = pd.read_csv("df_data.csv", encoding="utf-8")
     # 회귀분석모델 로드
     with open('linear_model.pkl', 'rb') as file:
         lr = pickle.load(file)
 
+    # 폰트 설정
+    font_path = "C:/Windows/Fonts/malgun.ttf"
+    font_prop = fm.FontProperties(fname=font_path)
+
+    # 마이너스 기호 문제 해결하기
+    plt.rcParams['axes.unicode_minus'] = False
+
+
+    plt.rc('font', family=font_prop.get_name())
     y = df_data["순위"].astype(int)
     x = df_data.drop(["순위", "팀명", "HLD", "RBI", "QS"], axis=1, inplace=False)  # 표준화 열의 원본 열도 제외
     # 훈련용, 테스트용 데이터 분리
@@ -268,7 +287,26 @@ def visualize_model():
     plt.show()
 
     # 분석 시각화 2. 산점도 행렬
-    sns.pairplot(df_view, vars=df_view.columns[:5].tolist() + ['target'])  # 첫 5개 독립변수와 종속변수
+    sns.pairplot(df_view, vars=df_view.columns[:5].tolist() + ['순위'])  # 첫 5개 독립변수와 종속변수
+    plt.show()
+
+    # 분석 시각화 3. 독립변수-종속변수 일대일 산점도와 회귀선 그래프 설정
+    plt.figure(figsize=(20, 15))
+
+    # "순위" 열을 제외한 독립변수 목록
+    independent_vars = df_view.drop(columns=['순위']).columns
+
+    # 각 독립변수에 대해 그래프 생성
+    for i, var in enumerate(independent_vars):
+        plt.subplot(4, 5, i + 1)  # 4행 3열의 서브플롯
+        sns.regplot(x=df_view[var], y=df_view['순위'], label='Actual', scatter_kws={'alpha': 0.6})
+        plt.title(f'{var} vs 순위')
+        plt.xlabel(var)
+        plt.ylabel('Dependent Variable (순위)')
+        plt.legend()
+        plt.grid(True)
+
+    plt.tight_layout()
     plt.show()
 
 
