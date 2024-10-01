@@ -60,6 +60,6 @@ if __name__ == "__main__":
     # 플라스크 서버 실행 app.run()은 블로킹 함수이므로 서버 종료시까지 코드가 진행되지 않는다 -> 스케줄러도 계속 실행중
     # 블로킹 함수: 프로그램 실행 중 특정 함수 또는 작업이 완료될 때까지 코드의 흐름을 멈추게 하는 호출
     try:
-        app.run()
+        app.run(debug=True)
     except KeyboardInterrupt:  # Ctrl+C로 서버 종료 / PyCharm: 정지버튼
         scheduler.shutdown(wait=False)  # 서버 중단 시 스케줄러 종료
