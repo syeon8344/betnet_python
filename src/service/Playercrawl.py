@@ -17,7 +17,7 @@ def is_page_loaded(wd: webdriver.Chrome):
 
 # 웹드라이버 설정
 options = Options()
-options.add_argument("--headless")  # GUI를 표시하지 않음
+options.add_argument("--headless=new")  # GUI를 표시하지 않음
 options.add_argument("--no-sandbox")  # 보안 샌드박스 비활성화
 
 players = []
