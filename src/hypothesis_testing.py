@@ -656,8 +656,8 @@ def hypo_js():
     }
     return jsonify(results)  # JSON 형식으로 반환
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# if __name__ == '__main__':
+#     app.run(debug=True)
 
 
 
