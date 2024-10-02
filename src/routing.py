@@ -162,6 +162,22 @@ def get_rank_table():
     return jsonify(df.to_json(orient='records', force_ascii=False))
 
 
+# 특정 연도 kbreport 크롤링된 데이터 내보내기
+@app.route('/getkbreporttable', methods=['GET'])
+def get_kbreport_table():
+    # 쿼리 문자열에서 연도 가져오기, 기본값은 2024
+    year = request.args.get('year', default=2024, type=int)
+    # 파일 읽기, 파일 유효성 체크 포함
+    try:
+        df = pd.read_csv(f'crawl_csv/kbreport/kbreport_{year}.csv', encoding='utf-8')
+    except FileNotFoundError:
+        print('/getkbreporttable: 해당 연도 kbreport 파일이 없습니다.')
+        return abort(404)  # 404 Not Found 에러 반환
+    # DataFrame을 JSON 형태의 문자열로 변환해서 전송
+    return jsonify(df.to_json(orient='records', force_ascii=False))
+
+
+
 # 모델 시각화 호출
 @app.route('/visualize', methods=['GET'])
 def visualize():
