@@ -112,7 +112,7 @@ def for_text(srcText):
     # srcText = 'KBO'   # 2. 사용자 입력으로 받은 검색어 변수
     cnt = 0 # 3. 검색 결과 개수
     jsonResult = {} # 4. 검색 결과를 정리하여 저장할 리스트 변수
-    total_results_needed = 300  # 원하는 결과 개수
+    total_results_needed = 100  # 원하는 결과 개수
 
     for src in srcText:
         print(f'src >> {src}')
