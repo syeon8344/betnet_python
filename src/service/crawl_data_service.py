@@ -1,13 +1,36 @@
 import pandas as pd
 import glob
 import numpy as np
+import pickle
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+import seaborn as sns
 
 
 # 투수 기록 CSV에 삼진율, 볼넷삼진비율 계산해서 CSV에 포함: SO/TBF*100, TBF = IP × 2.9(병살 등 고려) + BB + H + HBP
 def add_pitcher_metrics(df: pd.DataFrame):
+    # IP 값("1000 1/2" 등)을 소수점으로 변환
+    def convert_ip(row):
+        # 공백으로 나누기
+        parts = row["IP"].split(" ")
+        if len(parts) == 1:
+            # 공백이 없으면 그대로 반환
+            return float(parts[0])
+        else:
+            # 정수 분수 분리
+            integer_part = int(parts[0])
+            fraction_part = parts[1]
+
+            # 분수 계산
+            numerator, denominator = map(int, fraction_part.split("/"))
+            decimal_fraction = numerator / denominator
+
+            # 합산값 반환
+            return integer_part + decimal_fraction
+
     # 데이터 타입 확인 및 변환
     df["SO"] = pd.to_numeric(df["SO"], errors="coerce")
     df["IP"] = round(df.apply(convert_ip, axis="columns"), 3)
@@ -26,7 +49,7 @@ def add_match_code(df: pd.DataFrame, date: str):
     # 경기고유코드: 20240901-롯데-1400, 연월일-홈팀명-시작시간
     # apply(): 매 행마다 함수 적용, lambda 함수로 매 행마다 경기 고유코드를 생성해서 match_code 열의 내용으로 입력
     df["경기코드"] = df.apply(
-        lambda row: f"{date}{row["일"]}-{row["홈팀명"]}-{row["시작시간"].replace(":", "")}",
+        lambda row: f"{date}{row['일']}-{row['홈팀명']}-{row['시작시간'].replace(':', '')}",
         axis=1
     )
 
@@ -35,27 +58,6 @@ def add_match_code(df: pd.DataFrame, date: str):
     return df
 
 
-# IP 값("1000 1/2" 등)을 소수점으로 변환
-def convert_ip(row):
-    # 공백으로 나누기
-    parts = row["IP"].split(" ")
-    if len(parts) == 1:
-        # 공백이 없으면 그대로 반환
-        return float(parts[0])
-    else:
-        # 정수 분수 분리
-        integer_part = int(parts[0])
-        fraction_part = parts[1]
-
-        # 분수 계산
-        numerator, denominator = map(int, fraction_part.split("/"))
-        decimal_fraction = numerator / denominator
-
-        # 합산값 반환
-        return integer_part + decimal_fraction
-
-
-# 크롤링한 CSV에서 각종 지표를 이용하여 여러 승률을 계산한다.
 """
     betman.co.kr 승률 요소: 시즌승률, OPS, ERA, 득실점, 시즌공격력, 맞대결공격력, 맞대결수비력, 배당률
         - 시즌승률: 각 팀의 시즌 승/패
@@ -98,34 +100,39 @@ def add_win_calc(df: pd.DataFrame):
 
     # 타자/투수/주루 특정 지표들을 독립변수로, 팀 순위를 종속변수로 해서 팀 순위를 예측해서 승패 예측에 사용
     # CSV 파일들 모으기
-    hitter_csv_list = glob.glob("crawl_csv/hitter/*.csv")
-    pitcher_csv_list = glob.glob("crawl_csv/pitcher/*.csv")
-    runner_csv_list = glob.glob("crawl_csv/runner/*.csv")
-    rank_csv_list = glob.glob("crawl_csv/rank/*.csv")
+    hitter_csv_list = sorted(glob.glob("crawl_csv/hitter/*.csv"))
+    pitcher_csv_list = sorted(glob.glob("crawl_csv/pitcher/*.csv"))
+    runner_csv_list = sorted(glob.glob("crawl_csv/runner/*.csv"))
+    rank_csv_list = sorted(glob.glob("crawl_csv/rank/*.csv"))
+    kbreport_csv_list = sorted(glob.glob("crawl_csv/kbreport/*.csv"))
     year_df_list = []
-    csv_per_year = list(zip(hitter_csv_list, pitcher_csv_list, runner_csv_list, rank_csv_list))
+    csv_per_year = list(zip(hitter_csv_list, pitcher_csv_list, runner_csv_list, rank_csv_list, kbreport_csv_list))
 
     # zip된 각 CSV 주소들을 각각 변수 이름으로 CSV 파일에서 DataFrame을 읽어와 연도별로 합친다
     """
         배당률이 변하는 문제: 매번 배당률 계산시 매일 크롤링하는 2024년 선수 데이터가 적용되어서 문제가 생긴다.
         해결방법: (일단은) 바로 전 연도까지의 데이터만 사용한다.
     """
-    for hitter, pitcher, runner, rank in csv_per_year[:-1]:  # 올해 제외 (2015~2023)
+    for hitter, pitcher, runner, rank, kbreport in csv_per_year[:-1]:  # 올해 제외 (2015~2023)
         df_hitter = pd.read_csv(hitter, encoding="utf-8")[["팀명", "RBI", "OPS"]]
         df_pitcher = pd.read_csv(pitcher, encoding="utf-8")[["팀명", "ERA", "HLD", "CG", "QS", "K%", "K/BB", "WHIP"]]
         df_runner = pd.read_csv(runner, encoding="utf-8")[["팀명", "SB%", "OOB", "PKO"]]
         df_rank = pd.read_csv(rank, encoding="utf-8")[["순위", "팀명", "승률"]]
+        df_kbreport = pd.read_csv(kbreport, encoding="utf-8")[["팀명", "wOBA", "WAR"]]
         df_hitter.set_index("팀명", inplace=True)
         df_pitcher.set_index("팀명", inplace=True)
         df_runner.set_index("팀명", inplace=True)
         df_rank.set_index("팀명", inplace=True)
+        df_kbreport.set_index("팀명", inplace=True)
 
-        concat_df = pd.concat([df_rank, df_hitter, df_pitcher, df_runner], axis=1)
+        concat_df = pd.concat([df_rank, df_hitter, df_pitcher, df_runner, df_kbreport], axis=1)
         yearly_df = concat_df.sort_values(by="순위").reset_index()
         year_df_list.append(yearly_df)
 
     # 2015~2024 전체 타자/투수/주루/팀순위 DataFrame
     df_d = pd.concat(year_df_list, ignore_index=True)
+    # print(df_d["팀명"].value_counts())
+    # print(df_d["순위"].value_counts())
     # print(df_data.shape)
     # print(df_data.columns)
 
@@ -143,32 +150,33 @@ def add_win_calc(df: pd.DataFrame):
         df['QS_st'] = round((df['QS'] - qs_mean) / qs_std_dev, 3)
         return df
 
+    # 시각화를 위해 df_data csv로 내보내기
     df_data = add_standardized_data(df_d)
+    try:
+        df_data.to_csv("df_data.csv", mode="w", encoding="utf-8", index=False)
+        print("데이터가 성공적으로 저장되었습니다.")
+    except Exception as e:
+        print(f"CSV 저장 중 오류 발생: {e}")
+
     # 선형 회귀 모델
     # 독립 변수와 종속 변수 분리
-    y = df_data["순위"]
+    y = df_data["순위"].astype(int)
     x = df_data.drop(["순위", "팀명", "HLD", "RBI", "QS"], axis=1, inplace=False)  # 표준화 열의 원본 열도 제외
-    print(x.columns)
+    # print(x.columns)
     # 훈련용, 테스트용 데이터 분리
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.3, random_state=0)
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state=7)
     # 선형 회귀 분석 모델
     lr = LinearRegression()
     # 선형 회귀 분석 모델 훈련
     lr.fit(x_train, y_train)
-    # 테스트 데이터에 대한 예측 수행: y_predict
-    y_predict = lr.predict(x_test)
-    # print(y_predict)
-    # 훈련된 선형 회귀 분석 모델 평가
-    mse = mean_squared_error(y_test, y_predict)
-    rmse = np.sqrt(mse)
-    r2 = r2_score(y_test, y_predict)
-    print("=== 승률/배당률 선형 회귀 모델 평가 지표 ===")
-    print(f"MSE: {mse:.2f}, RMSE: {rmse:.2f}, R^2: {r2:.2f}")
-    print(f"y 절편: {np.round(lr.intercept_, 2)}, 회귀계수: {np.round(lr.coef_, 2)}")
-    coef = pd.Series(data=np.round(lr.coef_, 2), index=x.columns)
-    coef.sort_values(ascending=False)
-    print(coef)
-    print("========================================")
+
+    # 시각화를 위해 훈련된 선형회귀모델 저장
+    try:
+        with open('linear_model.pkl', 'wb') as file:
+            pickle.dump(lr, file)
+        print("모델이 성공적으로 저장되었습니다.")
+    except Exception as e:
+        print(f"모델 저장 중 오류 발생: {e}")
 
     # 각 행에 대해 예측 수행
     # row: DataFrame의 각 행을 나타내는 매개변수
@@ -178,12 +186,13 @@ def add_win_calc(df: pd.DataFrame):
     df_latest = add_standardized_data(df_l)
 
     df["어웨이예측순위"] = df.apply(
-        lambda row: round(lr.predict(df_latest.loc[df_latest["팀명"] == row["어웨이팀명"], x.columns])[0], 3),  # 예측할 입력 데이터를 배열로 변환
+        # 예측할 입력 데이터를 배열로 변환
+        lambda row: round(lr.predict(df_latest.loc[df_latest['팀명'] == row['어웨이팀명'], x.columns])[0], 3),
         axis=1  # 행 단위로 적용
     )
     df["홈예측순위"] = df.apply(
-        lambda row: round(lr.predict(df_latest.loc[df_latest["팀명"] == row["홈팀명"], x.columns])[0], 3),
         # 예측할 입력 데이터를 배열로 변환
+        lambda row: round(lr.predict(df_latest.loc[df_latest['팀명'] == row['홈팀명'], x.columns])[0], 3),
         axis=1  # 행 단위로 적용
     )
 
@@ -206,7 +215,14 @@ def add_win_calc(df: pd.DataFrame):
 
         # 결과값을 0.50에서 거리 비율에 따라 조정
         result_a = round(1.50 - normalized_distance * (1.50 - 1.10), 2)  # 1.10 ~ 1.50 사이로 변환
-        result_b = 3 - result_a # result a + result b = 3
+
+        # 배당률 최소 1.1배, 최대 1.9배
+        if result_a < 1.10:
+            result_a = 1.10
+        elif result_a > 1.90:
+            result_a = 1.90
+
+        result_b = 3 - result_a  # result a + result b = 3
         result_high, result_low = (result_a, result_b) if result_a >= result_b else (result_b, result_a)
 
         # 0.50 ~ 1.00 사이의 값을 1.00 ~ 1.50 사이로 변환 예측순위가 낮은 팀이 강한 팀이므로 낮은 배당률 할당
@@ -217,11 +233,81 @@ def add_win_calc(df: pd.DataFrame):
 
     # 배당률 열 등록
     df[["어웨이배당률", "홈배당률"]] = df.apply(lambda row: betting_calc(row["어웨이예측순위"], row["홈예측순위"]), axis=1)
-    
+
     # 승률 열 등록 (2-배당률 * 100)
     df["어웨이승률"] = round(2 - df["어웨이배당률"], 2)
     df["홈승률"] = round(2 - df["홈배당률"], 2)
     return df
+
+
+# 모델 시각화
+def visualize_model():
+    print("visualize_model")
+    # 데이터프레임 로드
+    df_data = pd.read_csv("df_data.csv", encoding="utf-8")
+    # 회귀분석모델 로드
+    with open('linear_model.pkl', 'rb') as file:
+        lr = pickle.load(file)
+
+    # 폰트 설정
+    font_path = "C:/Windows/Fonts/malgun.ttf"
+    font_prop = fm.FontProperties(fname=font_path)
+
+    # 마이너스 기호 문제 해결하기
+    plt.rcParams['axes.unicode_minus'] = False
+
+
+    plt.rc('font', family=font_prop.get_name())
+    y = df_data["순위"].astype(int)
+    x = df_data.drop(["순위", "팀명", "HLD", "RBI", "QS"], axis=1, inplace=False)  # 표준화 열의 원본 열도 제외
+    # 훈련용, 테스트용 데이터 분리
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state=7)
+    # 테스트 데이터에 대한 예측 수행: y_predict
+    y_predict = lr.predict(x_test)
+    # print(y_predict)
+    # 훈련된 선형 회귀 분석 모델 평가
+    mse = mean_squared_error(y_test, y_predict)
+    rmse = np.sqrt(mse)
+    r2 = r2_score(y_test, y_predict)
+    print("=== 승률/배당률 선형 회귀 모델 평가 지표 ===")
+    print(f"MSE: {mse:.2f}, RMSE: {rmse:.2f}, R^2: {r2:.2f}")
+    print(f"y 절편: {np.round(lr.intercept_, 2)}, 회귀계수: {np.round(lr.coef_, 2)}")
+    coef = pd.Series(data=np.round(lr.coef_, 2), index=x.columns)
+    coef.sort_values(ascending=False)
+    print(coef)
+    print("========================================")
+
+    # 분석 시각화 1. 상관관계 히트맵
+    df_view = x
+    df_view['순위'] = y
+    plt.figure(figsize=(12, 8))
+    correlation_matrix = df_view.corr()
+    sns.heatmap(correlation_matrix, annot=True, fmt=".2f", cmap='coolwarm')
+    plt.title('Correlation Heatmap')
+    plt.show()
+
+    # 분석 시각화 2. 산점도 행렬
+    sns.pairplot(df_view, vars=df_view.columns[:5].tolist() + ['순위'])  # 첫 5개 독립변수와 종속변수
+    plt.show()
+
+    # 분석 시각화 3. 독립변수-종속변수 일대일 산점도와 회귀선 그래프 설정
+    plt.figure(figsize=(20, 15))
+
+    # "순위" 열을 제외한 독립변수 목록
+    independent_vars = df_view.drop(columns=['순위']).columns
+
+    # 각 독립변수에 대해 그래프 생성
+    for i, var in enumerate(independent_vars):
+        plt.subplot(4, 5, i + 1)  # 4행 3열의 서브플롯
+        sns.regplot(x=df_view[var], y=df_view['순위'], label='Actual', scatter_kws={'alpha': 0.6})
+        plt.title(f'{var} vs 순위')
+        plt.xlabel(var)
+        plt.ylabel('Dependent Variable (순위)')
+        plt.legend()
+        plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
 
 
 # 파일을 직접 열 경우 실행
