@@ -162,7 +162,7 @@ def get_rank_table():
     return jsonify(df.to_json(orient='records', force_ascii=False))
 
 
-# 특정 연도 kbreport 크롤링된 데이터 내보내기
+# 케이비리포트 크롤링된 데이터 내보내기
 @app.route('/getkbreporttable', methods=['GET'])
 def get_kbreport_table():
     # 쿼리 문자열에서 연도 가져오기, 기본값은 2024
@@ -175,7 +175,6 @@ def get_kbreport_table():
         return abort(404)  # 404 Not Found 에러 반환
     # DataFrame을 JSON 형태의 문자열로 변환해서 전송
     return jsonify(df.to_json(orient='records', force_ascii=False))
-
 
 
 # 모델 시각화 호출
