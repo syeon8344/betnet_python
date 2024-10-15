@@ -44,11 +44,7 @@ def getPostData(post , jsonResult , cnt , src):
 
     # 딕셔너리 생성
     dic = {
-        'cnt': cnt,
-        'title': title,
-        'description': description,
-        'org_link': org_link,
-        'pubDate': pubDate
+        'cnt': cnt, 'title': title, 'description': description, 'org_link': org_link, 'pubDate': pubDate
     }
 
     # src를 기준으로 jsonResult에 저장
@@ -60,38 +56,30 @@ def get_keyword(jsonResult, srcText):
     import re  # 정규표현식 모듈
     from konlpy.tag import Okt
     from collections import Counter
-
     stopwords = {'마지막', '시리즈', '프로야구', '스폰서', '코스피', '유플러스', '하반기',
                  '글로벌', '신입사원', '연구원', '부회장', '먹거리', '대통령', '플라스틱', '결정전', '신기록',
                  '굿바이', '라이프', '끝내기', '생중계', '마침표'}
-
     result = []
     okt = Okt()  # 품사 태깅 객체를 한 번만 생성
-
     for src in srcText:
         print(f'Processing src: {src}')
-        title = ''
-
+        description = ''
         # jsonResult가 딕셔너리이므로 src에 해당하는 리스트에 접근
         if src in jsonResult:
             articles = jsonResult[src]
             for i in articles:
-                if 'title' in i:
+                if 'description' in i:
                     # 전처리(정규표현식) / (특수문자 제거)
-                    title += re.sub(r'[^\w]', ' ', i['title']) + ' '
-
+                    description += re.sub(r'[^\w]', ' ', i['description']) + ' '
         # 명사 추출
-        tag_words = okt.nouns(title)
-
+        tag_words = okt.nouns(description)
         # 불용어 제거 및 3글자 이상 필터링
         filtered_words = [
             word for word in tag_words
             if word not in stopwords and len(word) >= 3
         ]
-
         # 데이터 분석 - 단어 빈도 분석
         wordsCount = Counter(filtered_words)
-
         # 단어 빈도 (Counter) 객체를 딕셔너리화
         word_count = {}
         for tag, count in wordsCount.most_common(50):
@@ -99,11 +87,8 @@ def get_keyword(jsonResult, srcText):
                 word_count[tag] = count
                 if len(word_count) >= 5:  # 5개 이상이면 종료
                     break
-
         # src 값을 포함하여 결과에 추가
         result.append({'src': src, 'keywords': word_count})
-
-    print(result)
     return result
 
 # 데이터 분석을 위한 300개 크롤링
@@ -112,7 +97,7 @@ def for_text(srcText):
     # srcText = 'KBO'   # 2. 사용자 입력으로 받은 검색어 변수
     cnt = 0 # 3. 검색 결과 개수
     jsonResult = {} # 4. 검색 결과를 정리하여 저장할 리스트 변수
-    total_results_needed = 300  # 원하는 결과 개수
+    total_results_needed = 100  # 원하는 결과 개수
 
     for src in srcText:
         print(f'src >> {src}')
