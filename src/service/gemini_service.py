@@ -1,3 +1,7 @@
+
+from src.app import app
+
+
 import google.generativeai as genai
 
 def gemini(keyword):

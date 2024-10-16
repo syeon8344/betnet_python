@@ -5,7 +5,7 @@ from src.app import app
 import pandas as pd
 import datetime
 import service.crawl_data_service as cds
-import gemini.gemini as ge
+
 
 # 월간 경기일정을 CSV에서 읽어와서 (인덱스 포함) JSON형태의 문자열로 보내기
 # 연도와 월 포함시 특정 월 파일 정보 제공, 기본값은 현재 날짜
@@ -176,39 +176,12 @@ def get_kbreport_table():
     # DataFrame을 JSON 형태의 문자열로 변환해서 전송
     return jsonify(df.to_json(orient='records', force_ascii=False))
 
-
 # 모델 시각화 호출
 @app.route('/visualize', methods=['GET'])
 def visualize():
     cds.visualize_model()
     return 0
 
-
-# 특정 연도 kbreport 크롤링된 데이터 내보내기
-@app.route('/getkbreporttable', methods=['GET'])
-def get_kbreport_table():
-    # 쿼리 문자열에서 연도 가져오기, 기본값은 2024
-    year = request.args.get('year', default=2024, type=int)
-    # 파일 읽기, 파일 유효성 체크 포함
-    try:
-        df = pd.read_csv(f'crawl_csv/kbreport/kbreport_{year}.csv', encoding='utf-8')
-    except FileNotFoundError:
-        print('/getkbreporttable: 해당 연도 kbreport 파일이 없습니다.')
-        return abort(404)  # 404 Not Found 에러 반환
-    # DataFrame을 JSON 형태의 문자열로 변환해서 전송
-    return jsonify(df.to_json(orient='records', force_ascii=False))
-
-# 모델 시각화 호출
-@app.route('/visualize', methods=['GET'])
-def visualize():
-    cds.visualize_model()
-    return 0
-
-# gemini 챗봇
-@app.route('/gemini/chatbot' , methods=['GET'])
-def gemini():
-    keyword = request.args.get('keyword', type=str)
-    return ge.gemini(keyword)
 
 
 
