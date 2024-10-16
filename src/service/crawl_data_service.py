@@ -1,9 +1,13 @@
 import pandas as pd
 import glob
 import numpy as np
+import pickle
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+import seaborn as sns
 
 
 # 투수 기록 CSV에 삼진율, 볼넷삼진비율 계산해서 CSV에 포함: SO/TBF*100, TBF = IP × 2.9(병살 등 고려) + BB + H + HBP
@@ -146,7 +150,14 @@ def add_win_calc(df: pd.DataFrame):
         df['QS_st'] = round((df['QS'] - qs_mean) / qs_std_dev, 3)
         return df
 
+    # 시각화를 위해 df_data csv로 내보내기
     df_data = add_standardized_data(df_d)
+    try:
+        df_data.to_csv("df_data.csv", mode="w", encoding="utf-8", index=False)
+        print("데이터가 성공적으로 저장되었습니다.")
+    except Exception as e:
+        print(f"CSV 저장 중 오류 발생: {e}")
+
     # 선형 회귀 모델
     # 독립 변수와 종속 변수 분리
     y = df_data["순위"].astype(int)
@@ -158,20 +169,14 @@ def add_win_calc(df: pd.DataFrame):
     lr = LinearRegression()
     # 선형 회귀 분석 모델 훈련
     lr.fit(x_train, y_train)
-    # 테스트 데이터에 대한 예측 수행: y_predict
-    y_predict = lr.predict(x_test)
-    # print(y_predict)
-    # 훈련된 선형 회귀 분석 모델 평가
-    mse = mean_squared_error(y_test, y_predict)
-    rmse = np.sqrt(mse)
-    r2 = r2_score(y_test, y_predict)
-    print("=== 승률/배당률 선형 회귀 모델 평가 지표 ===")
-    print(f"MSE: {mse:.2f}, RMSE: {rmse:.2f}, R^2: {r2:.2f}")
-    print(f"y 절편: {np.round(lr.intercept_, 2)}, 회귀계수: {np.round(lr.coef_, 2)}")
-    coef = pd.Series(data=np.round(lr.coef_, 2), index=x.columns)
-    coef.sort_values(ascending=False)
-    print(coef)
-    print("========================================")
+
+    # 시각화를 위해 훈련된 선형회귀모델 저장
+    try:
+        with open('linear_model.pkl', 'wb') as file:
+            pickle.dump(lr, file)
+        print("모델이 성공적으로 저장되었습니다.")
+    except Exception as e:
+        print(f"모델 저장 중 오류 발생: {e}")
 
     # 각 행에 대해 예측 수행
     # row: DataFrame의 각 행을 나타내는 매개변수
@@ -210,6 +215,13 @@ def add_win_calc(df: pd.DataFrame):
 
         # 결과값을 0.50에서 거리 비율에 따라 조정
         result_a = round(1.50 - normalized_distance * (1.50 - 1.10), 2)  # 1.10 ~ 1.50 사이로 변환
+
+        # 배당률 최소 1.1배, 최대 1.9배
+        if result_a < 1.10:
+            result_a = 1.10
+        elif result_a > 1.90:
+            result_a = 1.90
+
         result_b = 3 - result_a  # result a + result b = 3
         result_high, result_low = (result_a, result_b) if result_a >= result_b else (result_b, result_a)
 
@@ -226,6 +238,76 @@ def add_win_calc(df: pd.DataFrame):
     df["어웨이승률"] = round(2 - df["어웨이배당률"], 2)
     df["홈승률"] = round(2 - df["홈배당률"], 2)
     return df
+
+
+# 모델 시각화
+def visualize_model():
+    print("visualize_model")
+    # 데이터프레임 로드
+    df_data = pd.read_csv("df_data.csv", encoding="utf-8")
+    # 회귀분석모델 로드
+    with open('linear_model.pkl', 'rb') as file:
+        lr = pickle.load(file)
+
+    # 폰트 설정
+    font_path = "C:/Windows/Fonts/malgun.ttf"
+    font_prop = fm.FontProperties(fname=font_path)
+
+    # 마이너스 기호 문제 해결하기
+    plt.rcParams['axes.unicode_minus'] = False
+
+
+    plt.rc('font', family=font_prop.get_name())
+    y = df_data["순위"].astype(int)
+    x = df_data.drop(["순위", "팀명", "HLD", "RBI", "QS"], axis=1, inplace=False)  # 표준화 열의 원본 열도 제외
+    # 훈련용, 테스트용 데이터 분리
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state=7)
+    # 테스트 데이터에 대한 예측 수행: y_predict
+    y_predict = lr.predict(x_test)
+    # print(y_predict)
+    # 훈련된 선형 회귀 분석 모델 평가
+    mse = mean_squared_error(y_test, y_predict)
+    rmse = np.sqrt(mse)
+    r2 = r2_score(y_test, y_predict)
+    print("=== 승률/배당률 선형 회귀 모델 평가 지표 ===")
+    print(f"MSE: {mse:.2f}, RMSE: {rmse:.2f}, R^2: {r2:.2f}")
+    print(f"y 절편: {np.round(lr.intercept_, 2)}, 회귀계수: {np.round(lr.coef_, 2)}")
+    coef = pd.Series(data=np.round(lr.coef_, 2), index=x.columns)
+    coef.sort_values(ascending=False)
+    print(coef)
+    print("========================================")
+
+    # 분석 시각화 1. 상관관계 히트맵
+    df_view = x
+    df_view['순위'] = y
+    plt.figure(figsize=(12, 8))
+    correlation_matrix = df_view.corr()
+    sns.heatmap(correlation_matrix, annot=True, fmt=".2f", cmap='coolwarm')
+    plt.title('Correlation Heatmap')
+    plt.show()
+
+    # 분석 시각화 2. 산점도 행렬
+    sns.pairplot(df_view, vars=df_view.columns[:5].tolist() + ['순위'])  # 첫 5개 독립변수와 종속변수
+    plt.show()
+
+    # 분석 시각화 3. 독립변수-종속변수 일대일 산점도와 회귀선 그래프 설정
+    plt.figure(figsize=(20, 15))
+
+    # "순위" 열을 제외한 독립변수 목록
+    independent_vars = df_view.drop(columns=['순위']).columns
+
+    # 각 독립변수에 대해 그래프 생성
+    for i, var in enumerate(independent_vars):
+        plt.subplot(4, 5, i + 1)  # 4행 3열의 서브플롯
+        sns.regplot(x=df_view[var], y=df_view['순위'], label='Actual', scatter_kws={'alpha': 0.6})
+        plt.title(f'{var} vs 순위')
+        plt.xlabel(var)
+        plt.ylabel('Dependent Variable (순위)')
+        plt.legend()
+        plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
 
 
 # 파일을 직접 열 경우 실행

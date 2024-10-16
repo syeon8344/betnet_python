@@ -263,7 +263,11 @@ def get_daily_data(wd: webdriver.chrome):
     date_string = wd.find_element(By.XPATH, '//*[@id="lblGameDate"]').text
     date_formatted = date_string[:10].replace('.', '-')  # 2024.09.06(요일) -> 2024-09-06
     # 게임센터 페이지의 경기 칸 수
-    game_list = wd.find_elements(By.CLASS_NAME, 'game-cont')
+    try:
+        game_list = wd.find_elements(By.CLASS_NAME, 'game-cont')
+    except Exception as e:
+        print("오늘 경기가 없습니다.")
+        return
     # print(len(num))  # 2024-09-06, (경기수) 4 출력
     # 데이터프레임 열 이름 목록
     columns_pitcher = ['일자', '홈/어웨이', '팀명', '선발투수', '시즌평균자책점', '시즌WAR', '시즌경기', '시즌선발평균이닝', '시즌QS', '시즌WHIP',
@@ -541,17 +545,19 @@ def do_crawl(include_old_data=False):
     print("크롤링 작업을 시작합니다.")
     # webdriver 객체 생성
     options = Options()  # 웹드라이버 설정
-    options.add_argument("--headless")  # 브라우저 GUI를 표시하지 않음
+    options.add_argument("--headless=new")  # 브라우저 GUI를 표시하지 않음
     options.add_argument("--no-sandbox")  # 보안 샌드박스 비활성화
     wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)
     try:
         # 크롤링 작업들 실행
-        # get_team_hitter_table(wd, include_old_data)
-        # get_team_pitcher_table(wd, include_old_data)
-        # get_team_runner_table(wd, include_old_data)
+        get_team_hitter_table(wd, include_old_data)
+        get_team_pitcher_table(wd, include_old_data)
+        get_team_runner_table(wd, include_old_data)
+        # 10월 경기가 없어 임시 조정
         # get_daily_data(wd)
-        # get_team_rank(wd, include_old_data)
-        # get_kbreport_crawl(wd, include_old_data)
+        get_team_rank(wd, include_old_data)
+        get_kbreport_crawl(wd, include_old_data)
+        # 10월 경기가 없어 임시 조정
         # get_monthly_schedule(wd)
         record_time()
         print("크롤링 작업 성공.")
@@ -567,19 +573,15 @@ def do_crawl(include_old_data=False):
             wd.quit()  # 웹드라이버 닫기
             print("크롤링 작업이 다시 실패했습니다. 웹페이지 오류가 있는지 확인해 주세요.")
             timeout_count = 0  # 재시도 변수 초기화
-    finally:
-        wd.quit()  # 크롤링 종료 후 웹드라이버 닫기
 
 
 if __name__ == "__main__":
     # 파일 직접 실행시 실행되는 부분
     # webdriver 객체 생성
     options = Options()  # 웹드라이버 설정
-    options.add_argument("--headless")  # 브라우저 GUI를 표시하지 않음
+    options.add_argument("--headless=new")  # 브라우저 GUI를 표시하지 않음
     options.add_argument("--no-sandbox")  # 보안 샌드박스 비활성화
     wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)
     # include_old_data=True일 시 2015년도 팀 타자/투수/주루 데이터부터 크롤링
     do_crawl(include_old_data=True)
-    # get_monthly_schedule(wd)
-    # get_kbreport_crawl(wd, True)
     wd.quit()
