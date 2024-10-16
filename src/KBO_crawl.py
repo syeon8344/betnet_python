@@ -546,13 +546,13 @@ def do_crawl(include_old_data=False):
     wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)
     try:
         # 크롤링 작업들 실행
-        get_team_hitter_table(wd, include_old_data)
-        get_team_pitcher_table(wd, include_old_data)
-        get_team_runner_table(wd, include_old_data)
-        get_daily_data(wd)
-        get_team_rank(wd, include_old_data)
-        get_kbreport_crawl(wd, include_old_data)
-        get_monthly_schedule(wd)
+        # get_team_hitter_table(wd, include_old_data)
+        # get_team_pitcher_table(wd, include_old_data)
+        # get_team_runner_table(wd, include_old_data)
+        # get_daily_data(wd)
+        # get_team_rank(wd, include_old_data)
+        # get_kbreport_crawl(wd, include_old_data)
+        # get_monthly_schedule(wd)
         record_time()
         print("크롤링 작업 성공.")
         wd.quit()  # 크롤링 종료 후 웹드라이버 닫기

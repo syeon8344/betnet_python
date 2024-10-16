@@ -1,12 +1,10 @@
 import json
-from crypt import methods
-
 from flask import request, abort, jsonify
 from src.app import app
 import pandas as pd
 import datetime
 import service.crawl_data_service as cds
-import Jemini as ge
+import gemini.gemini as ge
 
 # 월간 경기일정을 CSV에서 읽어와서 (인덱스 포함) JSON형태의 문자열로 보내기
 # 연도와 월 포함시 특정 월 파일 정보 제공, 기본값은 현재 날짜
@@ -184,7 +182,7 @@ def visualize():
     return 0
 
 # gemini 챗봇
-@app.route('gemini/chatbotBox' , methods=['GET'])
+@app.route('/gemini/chatbot' , methods=['GET'])
 def gemini():
     keyword = request.args.get('keyword', type=str)
     return ge.gemini(keyword)
