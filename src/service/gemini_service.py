@@ -1,28 +1,28 @@
 
 from src.app import app
-
+from flask import Flask, request, jsonify
 
 import google.generativeai as genai
 
-def gemini(keyword):
-    # Configure the API with your key
+def geminiService(keyword):
+    # API를 자신의 API 키로 설정합니다.
+    print( keyword )
     genai.configure(api_key='AIzaSyClbOBrF4jWqdwug_D9Xbd21R2HXNPrxNY')
+    # gemini 설정
+    generation_config = {
+        "temperature": 0, # 정확도
+    }
 
-    # Initialize the generative model (e.g., gemini-pro)
+    print(generation_config)
+    # 생성 모델을 초기화합니다 (예: gemini-pro)
     model = genai.GenerativeModel('gemini-pro')
-
-    # Start a new chat session with an empty history
+    print( model )
+    # 빈 채팅 기록으로 새 채팅 세션을 시작합니다.
     chat = model.start_chat(history=[])
-
-    # Send the user's message to the chat model
+    # 사용자의 메시지를 챗봇 모델에 전송합니다.
+    print( keyword )
     response = chat.send_message(keyword)
-
-    # Print the chatbot's response
+    # 챗봇의 응답을 반환합니다.
+    print(response.text)
     return response.text
 
-
-# If routing.py passes a keyword, call the chatbot with that keyword
-# Example usage (assuming routing.py would pass the 'keyword')
-if __name__ == "__main__":
-    keyword_from_routing = "Hello chatbot!"  # Example keyword
-    catbot(keyword=keyword_from_routing)
