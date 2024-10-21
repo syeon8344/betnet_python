@@ -206,34 +206,26 @@ def add_win_calc(df: pd.DataFrame):
         """
         # 각 순위간의 절대값 거리
         distance = abs(home_rank_approx - away_rank_approx)
-
         # 거리의 최대값은 9 (1과 10의 차이)
         max_distance = 9
-
         # 거리 비율을 계산하여 0과 1 사이의 값으로 변환
         normalized_distance = distance / max_distance  # 0 ~ 1 범위로 정규화
-
         # 결과값을 0.50에서 거리 비율에 따라 조정
         result_a = round(1.50 - normalized_distance * (1.50 - 1.10), 2)  # 1.10 ~ 1.50 사이로 변환
-
         # 배당률 최소 1.1배, 최대 1.9배
         if result_a < 1.10:
             result_a = 1.10
         elif result_a > 1.90:
             result_a = 1.90
-
         result_b = 3 - result_a  # result a + result b = 3
         result_high, result_low = (result_a, result_b) if result_a >= result_b else (result_b, result_a)
-
         # 0.50 ~ 1.00 사이의 값을 1.00 ~ 1.50 사이로 변환 예측순위가 낮은 팀이 강한 팀이므로 낮은 배당률 할당
         if home_rank_approx <= away_rank_approx:
             return pd.Series([result_low, result_high])
         else:
             return pd.Series([result_high, result_low])
-
     # 배당률 열 등록
     df[["어웨이배당률", "홈배당률"]] = df.apply(lambda row: betting_calc(row["어웨이예측순위"], row["홈예측순위"]), axis=1)
-
     # 승률 열 등록 (2-배당률 * 100)
     df["어웨이승률"] = round(2 - df["어웨이배당률"], 2)
     df["홈승률"] = round(2 - df["홈배당률"], 2)
@@ -298,7 +290,7 @@ def visualize_model():
 
     # 각 독립변수에 대해 그래프 생성
     for i, var in enumerate(independent_vars):
-        plt.subplot(4, 5, i + 1)  # 4행 3열의 서브플롯
+        plt.subplot(3, 5, i + 1)  # 4행 3열의 서브플롯
         sns.regplot(x=df_view[var], y=df_view['순위'], label='Actual', scatter_kws={'alpha': 0.6})
         plt.title(f'{var} vs 순위')
         plt.xlabel(var)

@@ -3,7 +3,7 @@ from src.app import app
 from flask import Flask, request, jsonify
 
 import google.generativeai as genai
-
+# 터미널에 pip install -U google-generativeai
 def geminiService(keyword):
     # API를 자신의 API 키로 설정합니다.
     print( keyword )

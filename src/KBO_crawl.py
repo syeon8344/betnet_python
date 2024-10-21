@@ -549,29 +549,30 @@ def do_crawl(include_old_data=False):
     options.add_argument("--no-sandbox")  # 보안 샌드박스 비활성화
     wd = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)
     try:
-        # 크롤링 작업들 실행
-        get_team_hitter_table(wd, include_old_data)
-        get_team_pitcher_table(wd, include_old_data)
-        get_team_runner_table(wd, include_old_data)
-        # 10월 경기가 없어 임시 조정
-        # get_daily_data(wd)
-        get_team_rank(wd, include_old_data)
-        get_kbreport_crawl(wd, include_old_data)
-        # 10월 경기가 없어 임시 조정
-        # get_monthly_schedule(wd)
-        record_time()
+        # # 크롤링 작업들 실행
+        # get_team_hitter_table(wd, include_old_data)
+        # get_team_pitcher_table(wd, include_old_data)
+        # get_team_runner_table(wd, include_old_data)
+        # # 10월 경기가 없어 임시 조정
+        # # get_daily_data(wd)
+        # get_team_rank(wd, include_old_data)
+        # get_kbreport_crawl(wd, include_old_data)
+        # # 10월 경기가 없어 임시 조정
+        # # get_monthly_schedule(wd)
+        # record_time()
         print("크롤링 작업 성공.")
         wd.quit()  # 크롤링 종료 후 웹드라이버 닫기
         timeout_count = 0  # 재시도 변수 초기화
-    except Exception:  # 웹페이지 로드 오류 (서버 닫힘 등으로 인해)
+    except Exception as e:  # 웹페이지 로드 오류 (서버 닫힘 등으로 인해)
+        print(f"do_crawl: ", e)
         if timeout_count == 0:
-            print("크롤링 작업이 실패했습니다. 다시 시도하는 중입니다.")
+            print("do_crawl: 크롤링 작업이 실패했습니다. 다시 시도하는 중입니다.")
             wd.quit()  # 웹드라이버 닫기
             timeout_count += 1
             do_crawl()  # 한번 더 재시도
         elif timeout_count == 1:
             wd.quit()  # 웹드라이버 닫기
-            print("크롤링 작업이 다시 실패했습니다. 웹페이지 오류가 있는지 확인해 주세요.")
+            print("do_crawl: 크롤링 작업이 다시 실패했습니다. 웹페이지 오류가 있는지 확인해 주세요.")
             timeout_count = 0  # 재시도 변수 초기화
 
 
