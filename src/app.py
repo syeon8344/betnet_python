@@ -14,6 +14,7 @@ from controller.KBOarticle_controller import *
 from controller.Salary import *
 from controller.gemini import *
 from hypothesis_testing import *
+from controller.chat_controller import *
 
 # 상태 파일 경로: 마지막으로 앱이 실행된 시간 기록
 CRAWL_LATEST = 'crawl_csv/crawl_latest.csv'
