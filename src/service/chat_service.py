@@ -2,33 +2,61 @@
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from flask import render_template
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, LearningRateScheduler
 from sklearn.model_selection import train_test_split
+import requests
+import csv
+
+from src.service.salary_service import predictSalary
+
 
 # RNN 기본구조 : 1. 데이터수집 2.전처리 3.토큰화/패딩 4. 모델구축 5.모델학습 6.모델평가(튜닝) 7.모델예측
-# 현재 시간을 구하는 서비스 함수 호출
-def time_info():
-    print('현재 시간 서비스 실행')
-    result = '3시' # 현재 시간을 구하는 로직하는 함수 호출
-    return f'현재 시간은 {result} 입니다.' # 챗봇이 응답하는 메시지 구성 반환
 
-def stock_info(*kwargs): # 여러개의 매개변수를 받기 # 가변길이의 매개변수 : *매개변수명(튜플) , **매개변수명(딕셔너리)
-    # 클라의 재고를 알려줘 => 우리의 제품목록중에 동일한 제품명이 있는지 확인
-    print('현재 재고 서비스 실행')
-    result = 30 # 현재 OO의 제품 재고를 구하는 로직하는 함수 호출 # 자바 REST 호출 함수
-    if result == False:
-        return '제품을 확인하기 위해서 제품명을 정확히 알려주세요.'
-    return f'{"콜라"}의 재고는 {result}입니다'
+# CSV 파일에서 선수 이름을 로드하는 함수
+def load_player_names(filename='crawl_csv/stat2024.csv'):
+    with open(filename, newline='', encoding='utf-8') as csvfile:
+        reader = csv.reader(csvfile)
+        player_names = [row[11] for row in reader]  # 첫 번째 열에 선수 이름이 있다고 가정
+    return player_names
 
+# 선수 이름 리스트 로드
+player_names = load_player_names()
+
+def salary(user_input): # 매개변수는 전처리된 text가아니라 js에서 전달받은 user_input 전달해야함
+    print('salary')
+    # 입력된 질문에서 공백 기준으로 분리
+    tokens = user_input.split(" ")
+
+    for token in  tokens :
+        if token in player_names :
+            response = predictSalary(token)
+            print("찾았다.")
+            print(response)
+            player_info = response[0]
+            예상연봉 = player_info.get('예상연봉')
+            선수명 = player_info.get('선수명')
+            str = f'{선수명}의 예상 연봉은 {예상연봉}입니다.'
+            return str
+        else:
+            return {"error": f"{token} 선수는 목록에 없습니다."}
+
+    else:
+        return {"error": "선수 이름이 입력되지 않았습니다."}
+
+def redirect_home(user_input):
+
+    return 'http://localhost:8080/'
 # 예측한 확률의 질문과 함수 매칭 딕셔너리
 response_functions = {
-    0 : time_info ,  # () 제외 # 지금 몇시에요? 라는 예측 질문을 찾았을 떄 함수 실행
-    5 : stock_info
+    1 : salary ,
+    4 : redirect_home
+    # 3 : 게시판 글쓰기
 }
 
 # 1. 데이터 수집 # csv , db , 함수(코드/메모리)
-data = pd.read_csv("챗봇데이터.csv")
+data = pd.read_csv("service/챗봇데이터.csv")
 # print( data )
 
 # 2. 데이터 전처리
@@ -39,10 +67,10 @@ from konlpy.tag import Okt
 import re # 정규표현식
 okt = Okt()
 
-
 def preprocess(text):
     # 정규표현식 수정: 영어 알파벳 포함
-    result = re.sub(r'[^0-9ㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z ]', '', text)
+    # result = re.sub(r'[^0-9ㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z ]', '', text)
+    result = re.sub(r'[^ㄱ-ㅎㅏ-ㅣ가-힣]', '', text)
     # 형태소 분석
     result = okt.pos(result)
     # 명사(Noun), 동사(Verb), 형용사(Adjective) 선택 가능
@@ -126,27 +154,32 @@ early_stop = EarlyStopping(monitor='loss', patience=5)
 batch_size = 32  # 원하는 배치 크기로 설정
 history = model.fit(input_train, output_train, validation_data=(input_val, output_val),
                     callbacks=[checkpoint, early_stop],
-                    epochs=200,
+                    epochs=20,
                     batch_size=batch_size)  # 배치 크기 지정
 
 # 4. 예측하기
-def response( text ) :
-    text = preprocess( text )# 1. 예측할 값도 전처리 한다.
+def response( user_input ) :
+    text = preprocess( user_input )# 1. 예측할 값도 전처리 한다.
     text = tokenizer.texts_to_sequences( [ text ] )  # 2. 예측할 값도 토큰 과 패딩  # 학습된 모델과 데이터 동일
     text = pad_sequences( text , maxlen= max_sequence_length )
     result = model.predict( text ) # 3. 예측
     max_index = np.argmax( result )  # 4. 결과 # 가장 높은 확률의 인덱스 찾기
-    msg = outputs[max_index]
+    msg = outputs[max_index]  # max_index : 예측한 질문의 위치 . # msg : 예윽한 질문의 위치에 따른 응답
 
-    # 만약에 예측한 질문의 인덱스가 함수 매칭 딕셔너리내 존재하면
-    if max_index in response_functions:
-        msg += response_functions[max_index]()  # 함수호츌
+    try:
+        msg = int(msg)  # 응답이 숫자이면 함수와 매칭할 예정
+    except:
+        return msg  # 응답이 문자열이면 바로 출력한다.
+
+    # 만약에 응답이 숫자이면 함수 매칭
+    if msg in response_functions:
+        msg = response_functions[msg](user_input)  # 함수호츌
 
     return msg  # 5.
 
-def main(text):
-    print(text)
-    result = response(text)  # 입력받은 내용을 함수에 넣어 응답을 예측를 한다.
+def main(user_input):
+    print(user_input)
+    result = response(user_input)  # 입력받은 내용을 함수에 넣어 응답을 예측를 한다.
     return result
 
 # if __name__ == "__main__":
