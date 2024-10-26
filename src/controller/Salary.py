@@ -7,4 +7,4 @@ def getSalary():
     name = request.args.get('name',type=str)
     print(name)
 
-    return predictSalary(name)
+    return jsonify(predictSalary(name))

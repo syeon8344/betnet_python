@@ -71,4 +71,5 @@ def predictSalary(name):
     # 예측 결과를 새로운 컬럼 '예상연봉'으로 추가
     #filtered_rows.loc[:, '예상연봉'] = y_predict
     print(filtered_rows)
-    return jsonify(filtered_rows.to_dict(orient='records'))
+    # return jsonify(filtered_rows.to_dict(orient='records'))
+    return filtered_rows.to_dict(orient='records')
