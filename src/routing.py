@@ -6,7 +6,6 @@ import pandas as pd
 import datetime
 import service.crawl_data_service as cds
 
-
 # 월간 경기일정을 CSV에서 읽어와서 (인덱스 포함) JSON형태의 문자열로 보내기
 # 연도와 월 포함시 특정 월 파일 정보 제공, 기본값은 현재 날짜
 @app.route('/monthlyschedule', methods=['GET'])

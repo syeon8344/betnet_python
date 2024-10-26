@@ -1,10 +1,16 @@
 # 2_미니챗봇.py
+from typing import TypeVar
+
+import jsonify
+from flask import request, abort, jsonify
+import json
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, LearningRateScheduler
 from sklearn.model_selection import train_test_split
+
 
 # RNN 기본구조 : 1. 데이터수집 2.전처리 3.토큰화/패딩 4. 모델구축 5.모델학습 6.모델평가(튜닝) 7.모델예측
 # 현재 시간을 구하는 서비스 함수 호출
@@ -21,14 +27,38 @@ def stock_info(*kwargs): # 여러개의 매개변수를 받기 # 가변길이의
         return '제품을 확인하기 위해서 제품명을 정확히 알려주세요.'
     return f'{"콜라"}의 재고는 {result}입니다'
 
+def schedule():
+    # 쿼리 문자열에서 year와 month 가져오기
+    year = request.args.get('year', type=int)
+    month = request.args.get('month', type=int)
+
+    if year and month:
+        date = f'{year:04d}{month:02d}'
+    else:
+        date = pd.to_datetime('today').strftime('%Y%m')  # 날짜 입력이 없을 시 현재 년도 월
+
+    try:
+        # 필요한 열만 불러오기
+        columns_to_load = ['연도', '월', '일', '시작시간', '홈팀명', '어웨이팀명']
+        df = pd.read_csv(f'crawl_csv/monthly_schedule/월간경기일정_{date}.csv', encoding='utf-8', dtype=str,
+                         usecols=columns_to_load)
+    except FileNotFoundError:
+        print('/monthlyschedule: 해당 연월의 월간경기일정 파일이 없습니다.')
+        return abort(404)  # 404 Not Found 응답 반환
+
+    # DataFrame을 JSON 형태의 문자열로 변환해서 전송
+    print(json.loads(df.to_json(orient='records', force_ascii=False)))
+    return jsonify(json.loads(df.to_json(orient='records', force_ascii=False)))
+
 # 예측한 확률의 질문과 함수 매칭 딕셔너리
 response_functions = {
+    2 : schedule,
     0 : time_info ,  # () 제외 # 지금 몇시에요? 라는 예측 질문을 찾았을 떄 함수 실행
     5 : stock_info
 }
 
 # 1. 데이터 수집 # csv , db , 함수(코드/메모리)
-data = pd.read_csv("챗봇데이터.csv")
+data = pd.read_csv("service/챗봇데이터.csv")
 # print( data )
 
 # 2. 데이터 전처리
@@ -42,7 +72,7 @@ okt = Okt()
 
 def preprocess(text):
     # 정규표현식 수정: 영어 알파벳 포함
-    result = re.sub(r'[^0-9ㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z ]', '', text)
+    result = re.sub(r'[^ㄱ-ㅎㅏ-ㅣ가-힣 ]', '', text)
     # 형태소 분석
     result = okt.pos(result)
     # 명사(Noun), 동사(Verb), 형용사(Adjective) 선택 가능
@@ -126,7 +156,7 @@ early_stop = EarlyStopping(monitor='loss', patience=5)
 batch_size = 32  # 원하는 배치 크기로 설정
 history = model.fit(input_train, output_train, validation_data=(input_val, output_val),
                     callbacks=[checkpoint, early_stop],
-                    epochs=200,
+                    epochs=30,
                     batch_size=batch_size)  # 배치 크기 지정
 
 # 4. 예측하기
@@ -136,20 +166,24 @@ def response( text ) :
     text = pad_sequences( text , maxlen= max_sequence_length )
     result = model.predict( text ) # 3. 예측
     max_index = np.argmax( result )  # 4. 결과 # 가장 높은 확률의 인덱스 찾기
-    msg = outputs[max_index]
+    msg = outputs[max_index] # max_index : 예측한 질문의 위치 . # msg : 예윽한 질문의 위치에 따른 응답
 
-    # 만약에 예측한 질문의 인덱스가 함수 매칭 딕셔너리내 존재하면
-    if max_index in response_functions:
-        msg += response_functions[max_index]()  # 함수호츌
+    try:
+        msg  = int( msg ) # 응답이 숫자이면 함수와 매칭할 예정
+        # 만약에 응답이 숫자이면 함수 매칭
+        if msg in response_functions:
+            msg = response_functions[msg]()  # 함수호츌
 
-    return msg  # 5.
-
+        return msg  # 5.
+    except :
+        return msg  # 응답이 문자열이면 바로 출력한다.
 def main(text):
     print(text)
     result = response(text)  # 입력받은 내용을 함수에 넣어 응답을 예측를 한다.
     return result
 
 # if __name__ == "__main__":
-#     text = "여기는 뭐하는 곳이야"
-#     result = main(text)
-#     print(result)
+#     while True :
+#         text = input()
+#         result = main(text)
+#         print(result)
