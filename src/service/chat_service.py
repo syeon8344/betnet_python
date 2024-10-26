@@ -6,11 +6,29 @@ from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, LearningRateScheduler
 from sklearn.model_selection import train_test_split
 
-
 # RNN 기본구조 : 1. 데이터수집 2.전처리 3.토큰화/패딩 4. 모델구축 5.모델학습 6.모델평가(튜닝) 7.모델예측
+# 현재 시간을 구하는 서비스 함수 호출
+def time_info():
+    print('현재 시간 서비스 실행')
+    result = '3시' # 현재 시간을 구하는 로직하는 함수 호출
+    return f'현재 시간은 {result} 입니다.' # 챗봇이 응답하는 메시지 구성 반환
+
+def stock_info(*kwargs): # 여러개의 매개변수를 받기 # 가변길이의 매개변수 : *매개변수명(튜플) , **매개변수명(딕셔너리)
+    # 클라의 재고를 알려줘 => 우리의 제품목록중에 동일한 제품명이 있는지 확인
+    print('현재 재고 서비스 실행')
+    result = 30 # 현재 OO의 제품 재고를 구하는 로직하는 함수 호출 # 자바 REST 호출 함수
+    if result == False:
+        return '제품을 확인하기 위해서 제품명을 정확히 알려주세요.'
+    return f'{"콜라"}의 재고는 {result}입니다'
+
+# 예측한 확률의 질문과 함수 매칭 딕셔너리
+response_functions = {
+    0 : time_info ,  # () 제외 # 지금 몇시에요? 라는 예측 질문을 찾았을 떄 함수 실행
+    5 : stock_info
+}
 
 # 1. 데이터 수집 # csv , db , 함수(코드/메모리)
-data = pd.read_csv('service/챗봇데이터.csv')
+data = pd.read_csv("챗봇데이터.csv")
 # print( data )
 
 # 2. 데이터 전처리
@@ -24,7 +42,7 @@ okt = Okt()
 
 def preprocess(text):
     # 정규표현식 수정: 영어 알파벳 포함
-    result = re.sub(r'[^가-힣 ]', '', text)
+    result = re.sub(r'[^0-9ㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z ]', '', text)
     # 형태소 분석
     result = okt.pos(result)
     # 명사(Noun), 동사(Verb), 형용사(Adjective) 선택 가능
@@ -40,16 +58,14 @@ def preprocess(text):
 # 전처리 실행  # 모든 질문을 전처리 해서 새로운 리스트
 processed_inputs = [ preprocess(질문) for 질문 in inputs ]
 # print( processed_inputs )
-# ['안녕하세요', '오늘 날씨 어때요', '지금 몇 시', '좋은 책 추천 해 주세요', '고마워요']
 
 # 3. 토크나이저
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-tokenizer = Tokenizer()
+tokenizer = Tokenizer(filters='' , lower=False , oov_token='<OOV>') # 변수명=클래스명()
 tokenizer.fit_on_texts( processed_inputs ) # 전처리된 단어 목록을 단어사전 생성
 # print( tokenizer.word_index ) # 사전확인
-# {'안녕하세요': 1, '오늘': 2, '날씨': 3, '어때요': 4, '지금': 5, '몇': 6, '시': 7, '좋은': 8, '책': 9 } ~~
 
 input_sequences = tokenizer.texts_to_sequences( processed_inputs ) # 벡터화
 # print( input_sequences )
@@ -73,19 +89,19 @@ from tensorflow.keras.layers import Embedding , LSTM , Dense , Bidirectional , D
 model = Sequential()
 print(tokenizer.word_index)
 model.add(Embedding(input_dim=len(tokenizer.word_index), output_dim=50, input_length=max_sequence_length))
-model.add(Bidirectional(LSTM(256, return_sequences=True , kernel_regularizer=tf.keras.regularizers.l2(0.01))))
+model.add(Bidirectional(LSTM(512, return_sequences=True , kernel_regularizer=tf.keras.regularizers.l2(0.01))))
 model.add(BatchNormalization())
-model.add(Dropout(0.2))
+model.add(Dropout(0.3))
 
 # 추가 LSTM 레이어
-model.add(Bidirectional(LSTM(128, return_sequences=True , kernel_regularizer=tf.keras.regularizers.l2(0.01))))  # return_sequences=True를 통해 다음 LSTM 레이어에 시퀀스 전달
+model.add(Bidirectional(LSTM(256, return_sequences=True , kernel_regularizer=tf.keras.regularizers.l2(0.01))))  # return_sequences=True를 통해 다음 LSTM 레이어에 시퀀스 전달
 model.add(BatchNormalization())
-model.add(Dropout(0.2))
+model.add(Dropout(0.3))
 
 # 또 다른 LSTM 레이어 추가
-model.add(Bidirectional(LSTM(64)))  # 마지막 LSTM 레이어에서는 return_sequences=False
+model.add(Bidirectional(LSTM(128)))  # 마지막 LSTM 레이어에서는 return_sequences=False
 model.add(BatchNormalization())
-model.add(Dropout(0.2))
+model.add(Dropout(0.3))
 
 model.add(Dense(len(outputs), activation='softmax', kernel_regularizer=tf.keras.regularizers.l2(0.01)))
 
@@ -107,9 +123,11 @@ checkpoint = ModelCheckpoint(checkpoint_path, save_weights_only=True, save_best_
 early_stop = EarlyStopping(monitor='loss', patience=5)
 
 # 학습
+batch_size = 32  # 원하는 배치 크기로 설정
 history = model.fit(input_train, output_train, validation_data=(input_val, output_val),
                     callbacks=[checkpoint, early_stop],
-                    epochs=200)
+                    epochs=200,
+                    batch_size=batch_size)  # 배치 크기 지정
 
 # 4. 예측하기
 def response( text ) :
@@ -118,10 +136,13 @@ def response( text ) :
     text = pad_sequences( text , maxlen= max_sequence_length )
     result = model.predict( text ) # 3. 예측
     max_index = np.argmax( result )  # 4. 결과 # 가장 높은 확률의 인덱스 찾기
-    return outputs[max_index]  # 5.
-# 확인
-print( response('안녕하세요') ) # 질문이 '안녕하세요' , 학습된 질문 목록중에 가장 높은 예측비율이 높은 질문의 응답을 출력한다.
-# 서비스 제공한다. # 플라스크
+    msg = outputs[max_index]
+
+    # 만약에 예측한 질문의 인덱스가 함수 매칭 딕셔너리내 존재하면
+    if max_index in response_functions:
+        msg += response_functions[max_index]()  # 함수호츌
+
+    return msg  # 5.
 
 def main(text):
     print(text)
