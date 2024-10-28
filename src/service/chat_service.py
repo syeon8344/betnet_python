@@ -21,10 +21,10 @@ data = pd.read_csv("service/챗봇데이터.csv")
 
 # 2. 불용어
 # https://gist.githubusercontent.com/spikeekips/40eea22ef4a89f629abd87eed535ac6a/raw/4f7a635040442a995568270ac8156448f2d1f0cb/stopwords-ko.txt 사용
-stopwords = pd.read_csv("stopwords-ko.txt", encoding="utf-8", sep="\n")
+stopwords = pd.read_csv("service/stopwords-ko.txt", encoding="utf-8", header=None)[0].tolist()
+# print(stopwords)
 
-
-# 3. 선수 이름 리스트 로드
+# 3. 선수 이름 리스트
 # CSV 파일에서 선수 이름을 로드하는 함수
 def load_player_names(filename='crawl_csv/stat2024.csv'):
     with open(filename, newline='', encoding='utf-8') as csvfile:
@@ -34,8 +34,6 @@ def load_player_names(filename='crawl_csv/stat2024.csv'):
 
 
 player_names = load_player_names()
-
-
 
 # [2] 데이터 전처리
 inputs = list(data['Q'])  # 질문
@@ -56,8 +54,8 @@ def preprocess(question):
     result = [word for word, pos in result if pos in ['Noun', 'Verb', 'Adjective']]
 
     # 불용어 처리 (예시)
-    stop_words = ['이', '그', '저', '것', '하다']  # 필요에 따라 수정
-    result = [word for word in result if word not in stop_words]
+    # stop_words = ['이', '그', '저', '것', '하다']  # 필요에 따라 수정
+    result = [word for word in result if word not in stopwords]
 
     # 최종 반환
     return " ".join(result).strip()
@@ -142,7 +140,7 @@ history = model.fit(input_train, output_train, validation_data=(input_val, outpu
                     epochs=1,
                     batch_size=batch_size)  # 배치 크기 지정
 
-print(model.summary)
+model.summary()
 
 
 # 4. 예측하기
