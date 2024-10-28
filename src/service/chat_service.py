@@ -1,22 +1,30 @@
-# 2_미니챗봇.py
-from typing import TypeVar
-
 from flask import request, abort, jsonify
 import json
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from tensorflow.keras.layers import BatchNormalization
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, LearningRateScheduler
+
 from sklearn.model_selection import train_test_split
-import requests
 import csv
-
 from src.service.salary_service import predictSalary
-import src.ball_gpt.seq2seq.seq2seqfromclass as s2s
+# 데이터 전처리
+from konlpy.tag import Okt
+import re  # 정규표현식
+# 모델
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import BatchNormalization, Embedding, LSTM, Dense, Bidirectional, Dropout
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, LearningRateScheduler
 
-# RNN 기본구조 : 1. 데이터수집 2.전처리 3.토큰화/패딩 4. 모델구축 5.모델학습 6.모델평가(튜닝) 7.모델예측
+# [1] 데이터 준비: csv, db, 함수(코드/메모리) 등
+# 1. 챗봇 질문 응답 데이터
+data = pd.read_csv("service/챗봇데이터.csv")
 
+# 2. 불용어
+# https://gist.githubusercontent.com/spikeekips/40eea22ef4a89f629abd87eed535ac6a/raw/4f7a635040442a995568270ac8156448f2d1f0cb/stopwords-ko.txt 사용
+stopwords = pd.read_csv("stopwords-ko.txt", encoding="utf-8", sep="\n")
+
+
+# 3. 선수 이름 리스트 로드
 # CSV 파일에서 선수 이름을 로드하는 함수
 def load_player_names(filename='crawl_csv/stat2024.csv'):
     with open(filename, newline='', encoding='utf-8') as csvfile:
@@ -25,85 +33,23 @@ def load_player_names(filename='crawl_csv/stat2024.csv'):
     return player_names
 
 
-# 선수 이름 리스트 로드
 player_names = load_player_names()
 
 
-def schedule():
-    # 쿼리 문자열에서 year와 month 가져오기
-    year = request.args.get('year', type=int)
-    month = request.args.get('month', type=int)
 
-    if year and month:
-        date = f'{year:04d}{month:02d}'
-    else:
-        date = pd.to_datetime('today').strftime('%Y%m')  # 날짜 입력이 없을 시 현재 년도 월
-
-    try:
-        # 필요한 열만 불러오기
-        columns_to_load = ['연도', '월', '일', '시작시간', '홈팀명', '어웨이팀명']
-        df = pd.read_csv(f'crawl_csv/monthly_schedule/월간경기일정_{date}.csv', encoding='utf-8', dtype=str,
-                         usecols=columns_to_load)
-    except FileNotFoundError:
-        print('/monthlyschedule: 해당 연월의 월간경기일정 파일이 없습니다.')
-        return abort(404)  # 404 Not Found 응답 반환
-
-    # DataFrame을 JSON 형태의 문자열로 변환해서 전송
-    print(json.loads(df.to_json(orient='records', force_ascii=False)))
-    return jsonify(json.loads(df.to_json(orient='records', force_ascii=False)))
-
-
-def salary(user_input):  # 매개변수는 전처리된 text가아니라 js에서 전달받은 user_input 전달해야함
-    print('salary')
-    # 입력된 질문에서 공백 기준으로 분리
-    tokens = user_input.split(" ")
-
-    for token in tokens:
-        if token in player_names:
-            response = predictSalary(token)
-            print("찾았다.")
-            print(response)
-            player_info = response[0]
-            예상연봉 = player_info.get('예상연봉')
-            선수명 = player_info.get('선수명')
-            str = f'{선수명}의 예상 연봉은 {예상연봉}입니다.'
-            return str
-        else:
-            return {"error": f"{token} 선수는 목록에 없습니다."}
-
-    else:
-        return {"error": "선수 이름이 입력되지 않았습니다."}
-
-
-def redirect_home(user_input):
-    return 'http://localhost:8080/'
-
-
-# 예측한 확률의 질문과 함수 매칭 딕셔너리
-response_functions = {
-    1: salary,
-    4: redirect_home
-    # 3 : 게시판 글쓰기
-}
-
-# 1. 데이터 수집 # csv , db , 함수(코드/메모리)
-data = pd.read_csv("service/챗봇데이터.csv")
-# print( data )
-
-# 2. 데이터 전처리
+# [2] 데이터 전처리
 inputs = list(data['Q'])  # 질문
 outputs = list(data['A'])  # 응답
 
-from konlpy.tag import Okt
-import re  # 정규표현식
 
 okt = Okt()
 
 
-def preprocess(text):
+# 질문 전처리
+def preprocess(question):
     # 정규표현식 수정: 영어 알파벳 포함
     # result = re.sub(r'[^0-9ㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z ]', '', text)
-    result = re.sub(r'[^ㄱ-ㅎㅏ-ㅣ가-힣]', '', text)
+    result = re.sub(r'[^ㄱ-ㅎㅏ-ㅣ가-힣 ]', '', question)
     # 형태소 분석
     result = okt.pos(result)
     # 명사(Noun), 동사(Verb), 형용사(Adjective) 선택 가능
@@ -144,10 +90,8 @@ input_sequences = pad_sequences(input_sequences, maxlen=max_sequence_length)  # 
 output_sequences = np.array(range(len(outputs)))
 # print( output_sequences )
 
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Embedding, LSTM, Dense, Bidirectional, Dropout
 
-# 모델
+# [3] 모델 구성
 model = Sequential()
 print(tokenizer.word_index)
 model.add(Embedding(input_dim=len(tokenizer.word_index), output_dim=50, input_length=max_sequence_length))
@@ -176,7 +120,7 @@ def scheduler(epoch, lr):
     return lr
 
 
-# 2. 컴파일
+# [4] 모델 컴파일
 model.compile(loss='sparse_categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
               metrics=['accuracy'])  # 학습률 감소
 
@@ -189,15 +133,14 @@ checkpoint = ModelCheckpoint(checkpoint_path, save_weights_only=True, save_best_
 early_stop = EarlyStopping(monitor='loss', patience=5)
 
 # 학습
+# TODO: test-train split을 제거하고 loss 함수 기준으로만 early_stop
 batch_size = 32  # 원하는 배치 크기로 설정
 history = model.fit(input_train, output_train, validation_data=(input_val, output_val),
                     callbacks=[checkpoint, early_stop],
-                    epochs=30,
+                    epochs=1,
                     batch_size=batch_size)  # 배치 크기 지정
 
-model_seq2 = s2s.Encoder()
-
-
+print(model.summary)
 
 
 # 4. 예측하기
@@ -205,8 +148,16 @@ def response(user_input):
     text = preprocess(user_input)  # 1. 예측할 값도 전처리 한다.
     text = tokenizer.texts_to_sequences([text])  # 2. 예측할 값도 토큰 과 패딩  # 학습된 모델과 데이터 동일
     text = pad_sequences(text, maxlen=max_sequence_length)
-    result = model.predict(text)  # 3. 예측
-    max_index = np.argmax(result)  # 4. 결과 # 가장 높은 확률의 인덱스 찾기
+    predict = model.predict(text)  # 3. 예측
+    print("predict: ", predict)
+    max_index = np.argmax(predict)  # 4. 결과 # 가장 높은 확률의 인덱스 찾기
+    confidence = predict[0][max_index]  # 예측 확률
+
+    # 예측 확률이 특정 임계값 이하일 경우
+    if confidence < 0.5:  # 예: 0.5 이하일 때
+        print("예측의 정확도가 낮습니다. 다른 질문을 해보세요.")  # 콘솔 출력
+        return None  # 함수 출력하지 않음
+
     msg = outputs[max_index]  # max_index : 예측한 질문의 위치 . # msg : 예윽한 질문의 위치에 따른 응답
 
     try:
@@ -225,6 +176,74 @@ def main(user_input):
     print(user_input)
     result = response(user_input)  # 입력받은 내용을 함수에 넣어 응답을 예측를 한다.
     return result
+
+
+# 챗봇에서 실행할 함수
+
+
+# {1} 연봉 검색 결과를 문장으로 반환
+def salary(user_input):  # 매개변수는 전처리된 text가아니라 js에서 전달받은 user_input 전달해야함
+    print('salary')
+    # 입력된 질문에서 공백 기준으로 분리
+    tokens = user_input.split(" ")
+
+    for token in tokens:
+        if token in player_names:
+            response = predictSalary(token)
+            print("찾았다.")
+            print(response)
+            player_info = response[0]
+            예상연봉 = player_info.get('예상연봉')
+            선수명 = player_info.get('선수명')
+            str = f'{선수명}의 예상 연봉은 {예상연봉}입니다.'
+            return str
+        else:
+            return {"error": f"{token} 선수는 목록에 없습니다."}
+
+    else:
+        return {"error": "선수 이름이 입력되지 않았습니다."}
+
+
+# {2} 월간 경기 일정
+def month_schedule():
+    # 쿼리 문자열에서 year와 month 가져오기
+    year = request.args.get('year', type=int)
+    month = request.args.get('month', type=int)
+
+    if year and month:
+        date = f'{year:04d}{month:02d}'
+    else:
+        date = pd.to_datetime('today').strftime('%Y%m')  # 날짜 입력이 없을 시 현재 년도 월
+
+    try:
+        # 필요한 열만 불러오기
+        columns_to_load = ['연도', '월', '일', '시작시간', '홈팀명', '어웨이팀명']
+        df = pd.read_csv(f'crawl_csv/monthly_schedule/월간경기일정_{date}.csv', encoding='utf-8', dtype=str,
+                         usecols=columns_to_load)
+    except FileNotFoundError:
+        print('/monthlyschedule: 해당 연월의 월간경기일정 파일이 없습니다.')
+        return abort(404)  # 404 Not Found 응답 반환
+
+    # DataFrame을 JSON 형태의 문자열로 변환해서 전송
+    print(json.loads(df.to_json(orient='records', force_ascii=False)))
+    return jsonify(json.loads(df.to_json(orient='records', force_ascii=False)))
+
+
+# {4} 홈페이지로 이동 (하는 주소 문자열 반환)
+def redirect_home(user_input):
+    return 'http://localhost:8080/'
+
+
+# 응답으로 실행할 함수 dict {응답 숫자 : 실행할 함수}
+response_functions = {
+    1: salary,
+    2: month_schedule,
+    4: redirect_home
+    # 3 : 게시판 글쓰기
+    # 월간 경기 일정 띄우기
+    #
+}
+
 
 # if __name__ == "__main__":
 #     text = "여기는 뭐하는 곳이야"
