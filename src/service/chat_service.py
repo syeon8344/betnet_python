@@ -133,7 +133,7 @@ checkpoint = ModelCheckpoint(checkpoint_path, save_weights_only=True, save_best_
 early_stop = EarlyStopping(monitor='loss', patience=5)
 
 # 학습
-# TODO: test-train split을 제거하고 loss 함수 기준으로만 early_stop
+# TODO: test-train split을 제거하고 loss 함수 기준으로만 early_stop, ckpt 파일 대신 .weight.h5 및 체크포인트 파일 사용하는 분기?
 batch_size = 32  # 원하는 배치 크기로 설정
 history = model.fit(input_train, output_train, validation_data=(input_val, output_val),
                     callbacks=[checkpoint, early_stop],
