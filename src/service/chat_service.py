@@ -1,7 +1,6 @@
 # 2_미니챗봇.py
 from typing import TypeVar
 
-import jsonify
 from flask import request, abort, jsonify
 import json
 import numpy as np
@@ -14,8 +13,7 @@ import requests
 import csv
 
 from src.service.salary_service import predictSalary
-
-
+import src.ball_gpt.seq2seq.seq2seqfromclass as s2s
 
 # RNN 기본구조 : 1. 데이터수집 2.전처리 3.토큰화/패딩 4. 모델구축 5.모델학습 6.모델평가(튜닝) 7.모델예측
 
@@ -26,8 +24,10 @@ def load_player_names(filename='crawl_csv/stat2024.csv'):
         player_names = [row[11] for row in reader]  # 첫 번째 열에 선수 이름이 있다고 가정
     return player_names
 
+
 # 선수 이름 리스트 로드
 player_names = load_player_names()
+
 
 def schedule():
     # 쿼리 문자열에서 year와 month 가져오기
@@ -52,13 +52,14 @@ def schedule():
     print(json.loads(df.to_json(orient='records', force_ascii=False)))
     return jsonify(json.loads(df.to_json(orient='records', force_ascii=False)))
 
-def salary(user_input): # 매개변수는 전처리된 text가아니라 js에서 전달받은 user_input 전달해야함
+
+def salary(user_input):  # 매개변수는 전처리된 text가아니라 js에서 전달받은 user_input 전달해야함
     print('salary')
     # 입력된 질문에서 공백 기준으로 분리
     tokens = user_input.split(" ")
 
-    for token in  tokens :
-        if token in player_names :
+    for token in tokens:
+        if token in player_names:
             response = predictSalary(token)
             print("찾았다.")
             print(response)
@@ -73,13 +74,15 @@ def salary(user_input): # 매개변수는 전처리된 text가아니라 js에서
     else:
         return {"error": "선수 이름이 입력되지 않았습니다."}
 
-def redirect_home(user_input):
 
+def redirect_home(user_input):
     return 'http://localhost:8080/'
+
+
 # 예측한 확률의 질문과 함수 매칭 딕셔너리
 response_functions = {
-    1 : salary ,
-    4 : redirect_home
+    1: salary,
+    4: redirect_home
     # 3 : 게시판 글쓰기
 }
 
@@ -88,12 +91,14 @@ data = pd.read_csv("service/챗봇데이터.csv")
 # print( data )
 
 # 2. 데이터 전처리
-inputs = list( data['Q'] ) # 질문
-outputs = list( data['A'] ) # 응답
+inputs = list(data['Q'])  # 질문
+outputs = list(data['A'])  # 응답
 
 from konlpy.tag import Okt
-import re # 정규표현식
+import re  # 정규표현식
+
 okt = Okt()
+
 
 def preprocess(text):
     # 정규표현식 수정: 영어 알파벳 포함
@@ -111,46 +116,48 @@ def preprocess(text):
     # 최종 반환
     return " ".join(result).strip()
 
+
 # 전처리 실행  # 모든 질문을 전처리 해서 새로운 리스트
-processed_inputs = [ preprocess(질문) for 질문 in inputs ]
+processed_inputs = [preprocess(질문) for 질문 in inputs]
 # print( processed_inputs )
 
 # 3. 토크나이저
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-tokenizer = Tokenizer(filters='' , lower=False , oov_token='<OOV>') # 변수명=클래스명()
-tokenizer.fit_on_texts( processed_inputs ) # 전처리된 단어 목록을 단어사전 생성
+tokenizer = Tokenizer(filters='', lower=False, oov_token='<OOV>')  # 변수명=클래스명()
+tokenizer.fit_on_texts(processed_inputs)  # 전처리된 단어 목록을 단어사전 생성
 # print( tokenizer.word_index ) # 사전확인
 
-input_sequences = tokenizer.texts_to_sequences( processed_inputs ) # 벡터화
+input_sequences = tokenizer.texts_to_sequences(processed_inputs)  # 벡터화
 # print( input_sequences )
 
-max_sequence_length = max( len(문장) for 문장 in input_sequences ) # 여러 문장중에 가장 긴 단어의 개수
+max_sequence_length = max(len(문장) for 문장 in input_sequences)  # 여러 문장중에 가장 긴 단어의 개수
 # print( max_sequence_length ) # '좋은 책 추천 해 주세요' # 5
 
-input_sequences = pad_sequences( input_sequences  , maxlen=max_sequence_length ) # 패딩화 # 가장 길이가 긴 문장 기준으로 0으로 채우기
+input_sequences = pad_sequences(input_sequences, maxlen=max_sequence_length)  # 패딩화 # 가장 길이가 긴 문장 기준으로 0으로 채우기
 # print( input_sequences ) #  '오늘 날씨 어때요' --> [ 2  3  4 ] --> [ 0 0 2 3 4 ] # 좋은 성능을 만들기 위해 차원을 통일
 
 # 종속변수 # 데이터프레임 --> 일반 배열 변환
 # output_sequences = np.array(  outputs  )
 # print( output_sequences )
-output_sequences = np.array( range( len( outputs ) ) )
+output_sequences = np.array(range(len(outputs)))
 # print( output_sequences )
 
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Embedding , LSTM , Dense , Bidirectional , Dropout
+from tensorflow.keras.layers import Embedding, LSTM, Dense, Bidirectional, Dropout
 
 # 모델
 model = Sequential()
 print(tokenizer.word_index)
 model.add(Embedding(input_dim=len(tokenizer.word_index), output_dim=50, input_length=max_sequence_length))
-model.add(Bidirectional(LSTM(512, return_sequences=True , kernel_regularizer=tf.keras.regularizers.l2(0.01))))
+model.add(Bidirectional(LSTM(512, return_sequences=True, kernel_regularizer=tf.keras.regularizers.l2(0.01))))
 model.add(BatchNormalization())
 model.add(Dropout(0.3))
 
 # 추가 LSTM 레이어
-model.add(Bidirectional(LSTM(256, return_sequences=True , kernel_regularizer=tf.keras.regularizers.l2(0.01))))  # return_sequences=True를 통해 다음 LSTM 레이어에 시퀀스 전달
+model.add(Bidirectional(LSTM(256, return_sequences=True, kernel_regularizer=tf.keras.regularizers.l2(
+    0.01))))  # return_sequences=True를 통해 다음 LSTM 레이어에 시퀀스 전달
 model.add(BatchNormalization())
 model.add(Dropout(0.3))
 
@@ -161,14 +168,17 @@ model.add(Dropout(0.3))
 
 model.add(Dense(len(outputs), activation='softmax', kernel_regularizer=tf.keras.regularizers.l2(0.01)))
 
+
 # Learning Rate Scheduler 함수
 def scheduler(epoch, lr):
     if epoch > 5:
         return lr * tf.math.exp(-0.1)  # 학습률 감소
     return lr
 
+
 # 2. 컴파일
-model.compile(loss='sparse_categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.001), metrics=['accuracy'])  # 학습률 감소
+model.compile(loss='sparse_categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+              metrics=['accuracy'])  # 학습률 감소
 
 # 3. 데이터셋 분리
 input_train, input_val, output_train, output_val = train_test_split(input_sequences, output_sequences, test_size=0.2)
@@ -185,13 +195,18 @@ history = model.fit(input_train, output_train, validation_data=(input_val, outpu
                     epochs=30,
                     batch_size=batch_size)  # 배치 크기 지정
 
+model_seq2 = s2s.Encoder()
+
+
+
+
 # 4. 예측하기
-def response( user_input ) :
-    text = preprocess( user_input )# 1. 예측할 값도 전처리 한다.
-    text = tokenizer.texts_to_sequences( [ text ] )  # 2. 예측할 값도 토큰 과 패딩  # 학습된 모델과 데이터 동일
-    text = pad_sequences( text , maxlen= max_sequence_length )
-    result = model.predict( text ) # 3. 예측
-    max_index = np.argmax( result )  # 4. 결과 # 가장 높은 확률의 인덱스 찾기
+def response(user_input):
+    text = preprocess(user_input)  # 1. 예측할 값도 전처리 한다.
+    text = tokenizer.texts_to_sequences([text])  # 2. 예측할 값도 토큰 과 패딩  # 학습된 모델과 데이터 동일
+    text = pad_sequences(text, maxlen=max_sequence_length)
+    result = model.predict(text)  # 3. 예측
+    max_index = np.argmax(result)  # 4. 결과 # 가장 높은 확률의 인덱스 찾기
     msg = outputs[max_index]  # max_index : 예측한 질문의 위치 . # msg : 예윽한 질문의 위치에 따른 응답
 
     try:
@@ -204,6 +219,7 @@ def response( user_input ) :
         msg = response_functions[msg](user_input)  # 함수호츌
 
     return msg  # 5.
+
 
 def main(user_input):
     print(user_input)
