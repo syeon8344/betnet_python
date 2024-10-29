@@ -13,7 +13,7 @@ import requests
 import csv
 
 from src.service.salary_service import predictSalary
-import src.ball_gpt.seq2seq.seq2seqfromclass as s2s
+
 
 # RNN 기본구조 : 1. 데이터수집 2.전처리 3.토큰화/패딩 4. 모델구축 5.모델학습 6.모델평가(튜닝) 7.모델예측
 
@@ -173,8 +173,8 @@ model.add(Dense(len(outputs), activation='softmax', kernel_regularizer=tf.keras.
 def scheduler(epoch, lr):
     if epoch > 5:
         return lr * tf.math.exp(-0.1)  # 학습률 감소
-    return lr
 
+    return lr
 
 # 2. 컴파일
 model.compile(loss='sparse_categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
@@ -192,12 +192,8 @@ early_stop = EarlyStopping(monitor='loss', patience=5)
 batch_size = 32  # 원하는 배치 크기로 설정
 history = model.fit(input_train, output_train, validation_data=(input_val, output_val),
                     callbacks=[checkpoint, early_stop],
-                    epochs=30,
+                    epochs=100,
                     batch_size=batch_size)  # 배치 크기 지정
-
-model_seq2 = s2s.Encoder()
-
-
 
 
 # 4. 예측하기
