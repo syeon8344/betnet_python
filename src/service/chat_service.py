@@ -249,12 +249,58 @@ def month_schedule():
 def redirect_home(user_input):
     return 'http://localhost:8080/'
 
+# {5} 뉴스 이동
+def redirect_news(user_input):
+    return 'http://localhost:8080/article'
+
+# {6} 굿즈마켓 이동
+def redirect_market(user_input):
+    return 'http://localhost:8080/market'
+
+# {7} 설문조사 이동
+def redirect_poll(user_input):
+    return 'http://localhost:8080/poll'
+
+# {8} 게시판 이동
+def redirect_board(user_input):
+    return 'http://localhost:8080/board'
+
+# {9} 제미니 이동
+def redirect_gemini(user_input):
+    return 'http://localhost:8080/gemini'
+
+# {10} 타자기록 이동
+def redirect_hitter(user_input):
+    return 'http://localhost:8080/hitter'
+
+# {11} 투수기록 이동
+def redirect_pitcher(user_input):
+    return 'http://localhost:8080/pitcher'
+
+# {12} 주루기록 이동
+def redirect_runner(user_input):
+    return 'http://localhost:8080/runner'
+
+# {13} 순위기록 이동
+def redirect_rank(user_input):
+    return 'http://localhost:8080/rank'
+
 
 # 응답으로 실행할 함수 dict {응답 숫자 : 실행할 함수}
 response_functions = {
     1: salary,
     2: month_schedule,
-    4: redirect_home
+    4: redirect_home,
+    5: redirect_news,
+    6: redirect_market,
+    7: redirect_poll,
+    8: redirect_board,
+    9: redirect_gemini,
+    10: redirect_hitter,
+    11: redirect_pitcher,
+    12: redirect_runner,
+    13: redirect_rank,
+
     # 3 : 게시판 글쓰기
     # 월간 경기 일정 띄우기
     #
