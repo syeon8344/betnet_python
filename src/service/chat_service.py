@@ -1,15 +1,18 @@
 from flask import request, abort, jsonify
 import json
+import csv
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 
 from sklearn.model_selection import train_test_split
-import csv
 from src.service.salary_service import predictSalary
 # 데이터 전처리
 from konlpy.tag import Okt
 import re  # 정규표현식
+# 토크나이저
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 # 모델
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import BatchNormalization, Embedding, LSTM, Dense, Bidirectional, Dropout
@@ -23,6 +26,7 @@ data = pd.read_csv("service/챗봇데이터.csv")
 # https://gist.githubusercontent.com/spikeekips/40eea22ef4a89f629abd87eed535ac6a/raw/4f7a635040442a995568270ac8156448f2d1f0cb/stopwords-ko.txt 사용
 stopwords = pd.read_csv("service/stopwords-ko.txt", encoding="utf-8", header=None)[0].tolist()
 # print(stopwords)
+
 
 # 3. 선수 이름 리스트
 # CSV 파일에서 선수 이름을 로드하는 함수
@@ -43,7 +47,7 @@ outputs = list(data['A'])  # 응답
 okt = Okt()
 
 
-# 질문 전처리
+# 1. 질문 전처리
 def preprocess(question):
     # 정규표현식 수정: 영어 알파벳 포함
     # result = re.sub(r'[^0-9ㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z ]', '', text)
@@ -52,22 +56,18 @@ def preprocess(question):
     result = okt.pos(result)
     # 명사(Noun), 동사(Verb), 형용사(Adjective) 선택 가능
     result = [word for word, pos in result if pos in ['Noun', 'Verb', 'Adjective']]
-
     # 불용어 처리 (예시)
     # stop_words = ['이', '그', '저', '것', '하다']  # 필요에 따라 수정
     result = [word for word in result if word not in stopwords]
-
     # 최종 반환
     return " ".join(result).strip()
 
 
 # 전처리 실행  # 모든 질문을 전처리 해서 새로운 리스트
-processed_inputs = [preprocess(질문) for 질문 in inputs]
+processed_inputs = [preprocess(question) for question in inputs]
 # print( processed_inputs )
 
 # 3. 토크나이저
-from tensorflow.keras.preprocessing.text import Tokenizer
-from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 tokenizer = Tokenizer(filters='', lower=False, oov_token='<OOV>')  # 변수명=클래스명()
 tokenizer.fit_on_texts(processed_inputs)  # 전처리된 단어 목록을 단어사전 생성
@@ -90,25 +90,26 @@ output_sequences = np.array(range(len(outputs)))
 
 
 # [3] 모델 구성
-model = Sequential()
-print(tokenizer.word_index)
-model.add(Embedding(input_dim=len(tokenizer.word_index), output_dim=50, input_length=max_sequence_length))
-model.add(Bidirectional(LSTM(512, return_sequences=True, kernel_regularizer=tf.keras.regularizers.l2(0.01))))
-model.add(BatchNormalization())
-model.add(Dropout(0.3))
+model = Sequential([
+    Embedding(input_dim=len(tokenizer.word_index) + 1, output_dim=50, input_length=max_sequence_length),
+    Bidirectional(LSTM(512, return_sequences=True, kernel_regularizer=tf.keras.regularizers.l2(0.01))),
+    BatchNormalization(),
+    Dropout(0.3),
+    # 추가 LSTM 레이어
+    Bidirectional(LSTM(256, return_sequences=True, kernel_regularizer=tf.keras.regularizers.l2(0.01))),
+    BatchNormalization(),
+    Dropout(0.3),
+    # 또 다른 LSTM 레이어 추가
+    Bidirectional(LSTM(128)),  # return_sequences=False
+    BatchNormalization(),
+    Dropout(0.3),
+    # 출력층
+    Dense(len(outputs), activation='softmax', kernel_regularizer=tf.keras.regularizers.l2(0.01))
+])
 
-# 추가 LSTM 레이어
-model.add(Bidirectional(LSTM(256, return_sequences=True, kernel_regularizer=tf.keras.regularizers.l2(
-    0.01))))  # return_sequences=True를 통해 다음 LSTM 레이어에 시퀀스 전달
-model.add(BatchNormalization())
-model.add(Dropout(0.3))
-
-# 또 다른 LSTM 레이어 추가
-model.add(Bidirectional(LSTM(128)))  # 마지막 LSTM 레이어에서는 return_sequences=False
-model.add(BatchNormalization())
-model.add(Dropout(0.3))
-
-model.add(Dense(len(outputs), activation='softmax', kernel_regularizer=tf.keras.regularizers.l2(0.01)))
+# [4] 모델 컴파일
+model.compile(loss='sparse_categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+              metrics=['accuracy'])  # 학습률 감소
 
 
 # Learning Rate Scheduler 함수
@@ -117,10 +118,6 @@ def scheduler(epoch, lr):
         return lr * tf.math.exp(-0.1)  # 학습률 감소
     return lr
 
-
-# [4] 모델 컴파일
-model.compile(loss='sparse_categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
-              metrics=['accuracy'])  # 학습률 감소
 
 # 3. 데이터셋 분리
 input_train, input_val, output_train, output_val = train_test_split(input_sequences, output_sequences, test_size=0.2)
