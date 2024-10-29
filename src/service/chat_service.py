@@ -134,7 +134,7 @@ early_stop = EarlyStopping(monitor='loss', patience=5)
 batch_size = 32  # 원하는 배치 크기로 설정
 history = model.fit(input_train, output_train, validation_data=(input_val, output_val),
                     callbacks=[checkpoint, early_stop],
-                    epochs=1,
+                    epochs=20,
                     batch_size=batch_size)  # 배치 크기 지정
 
 model.summary()
