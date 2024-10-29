@@ -7,6 +7,7 @@ import tensorflow as tf
 
 from sklearn.model_selection import train_test_split
 from src.service.salary_service import predictSalary
+
 # 데이터 전처리
 from konlpy.tag import Okt
 import re  # 정규표현식
