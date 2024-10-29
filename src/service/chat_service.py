@@ -131,7 +131,7 @@ early_stop = EarlyStopping(monitor='loss', patience=5)
 # TODO: test-train split을 제거하고 loss 함수 기준으로만 early_stop, ckpt 파일 대신 .weight.h5 및 체크포인트 파일 사용하는 분기?
 # TODO: 정확도가 낮을 때 gemini API로 보내기?
 # TODO: python 3.8 수업 버전으로 써보기
-batch_size = 32  # 원하는 배치 크기로 설정
+batch_size = 16  # 원하는 배치 크기로 설정
 history = model.fit(input_train, output_train, validation_data=(input_val, output_val),
                     callbacks=[checkpoint, early_stop],
                     epochs=20,
