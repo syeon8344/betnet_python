@@ -1,3 +1,5 @@
+import os
+
 from flask import request, abort, jsonify
 import json
 import csv
@@ -28,9 +30,8 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, LearningR
 
 # [1] 데이터 준비: csv, db, 함수(코드/메모리) 등
 # 1. 챗봇 질문 응답 데이터
-data = pd.read_csv("service/챗봇데이터.csv")
-print(data.head())
-data.to_csv("processed_data.csv", index=False, encoding='utf-8')
+data = pd.read_csv("service/챗봇데이터.csv", header=0)
+
 # 2. 불용어
 # https://gist.githubusercontent.com/spikeekips/40eea22ef4a89f629abd87eed535ac6a/raw/4f7a635040442a995568270ac8156448f2d1f0cb/stopwords-ko.txt 사용
 stopwords = pd.read_csv("service/stopwords-ko.txt", encoding="utf-8", header=None)[0].tolist()
@@ -56,19 +57,6 @@ data = data.sample(frac=1, random_state=7).reset_index(drop=True)  # frac: 섞�
 inputs = list(data['Q'])  # 질문
 outputs = list(data['A'])  # 응답
 
-
-# train_sentences = data[:training_size]  # 전체 데이터에서 훈련 데이터 비율까지 슬라이싱
-# valid_sentences = data[training_size:]  # 나머지는 테스트 데이터 슬라이싱
-# train_inputs = list(train_sentences['Q'])  # 훈련 데이터 질문
-# train_outputs = list(train_sentences['A'])  # 훈련 데이터의 응답
-# valid_inputs = list(valid_sentences['Q'])  # 검증 데이터 질문
-# valid_outputs = list(valid_sentences['A'])  # 검증 데이터 응답
-# print("==== train-test split ====")
-# print(train_inputs[:5])
-# print(train_outputs[:5])
-# print(valid_inputs[:5])
-# print(valid_outputs[:5])
-
 okt = Okt()
 
 
@@ -90,23 +78,13 @@ def preprocess(text):
 
 # 전처리 실행  # 모든 질문을 전처리 해서 새로운 리스트
 processed_inputs = [preprocess(question) for question in list(data['Q'])]
-# train_inputs_pre = [preprocess(question) for question in train_inputs]
-# valid_inputs_pre = [preprocess(question) for question in valid_inputs]
-# print("==== preprocessed ====")
-# print(train_inputs_pre[:5])
-# print(valid_inputs_pre[:5])
-# print( processed_inputs )
 
 # 3. 토크나이저
-
 tokenizer = Tokenizer(filters='', lower=False, oov_token='<OOV>')  # 변수명=클래스명()
 tokenizer.fit_on_texts(processed_inputs)  # 전처리된 단어 목록을 단어사전 생성
 print( tokenizer.word_index ) # 사전확인
 
 input_sequences = tokenizer.texts_to_sequences(processed_inputs)  # 벡터화
-# train_inputs_seq = tokenizer.texts_to_sequences(train_inputs_pre)
-# valid_inputs_seq = tokenizer.texts_to_sequences(train)
-# print( input_sequences )
 
 max_sequence_length = max(len(sentence) for sentence in input_sequences)  # 여러 문장중에 가장 긴 단어의 개수
 # print( max_sequence_length ) # '좋은 책 추천 해 주세요' # 5
@@ -163,21 +141,20 @@ def scheduler(epoch, lr):
 
 # # 3. 데이터셋 분리
 # input_train, input_val, output_train, output_val = train_test_split(input_sequences, output_sequences, test_size=0.2)
+# 체크포인트 콜백 설정 (가중치만 저장)
+checkpoint = ModelCheckpoint('ballgpt_model_weights.h5', save_weights_only=True, save_best_only=True)
+early_stop = EarlyStopping(monitor='loss', patience=5, verbose=1)
 
-# 체크포인트 및 조기 중단 설정
-# checkpoint_path = 'best_performed_model.ckpt'
-# checkpoint = ModelCheckpoint(checkpoint_path, save_weights_only=True, save_best_only=True, monitor='loss', verbose=1)
-early_stop = EarlyStopping(monitor='loss', patience=5)
-
-# 학습
-# TODO: test-train split을 제거하고 loss 함수 기준으로만 early_stop, ckpt 파일 대신 .weight.h5 및 체크포인트 파일 사용하는 분기?
-# TODO: 정확도가 낮을 때 gemini API로 보내기?
-# TODO: python 3.8 수업 버전으로 써보기
-batch_size = 32  # 원하는 배치 크기로 설정
-history = model.fit(train_input_seq, train_output, validation_data=(valid_input_seq, valid_output),
-                    callbacks=[early_stop],
-                    epochs=20,
-                    batch_size=batch_size)  # 배치 크기 지정
+if os.path.exists('ballgpt_model_weights.h5'):
+    model.load_weights('ballgpt_model_weights.h5')
+else:
+    # 학습
+    # TODO: 정확도가 낮을 때 gemini API로 보내기?
+    batch_size = 32  # 원하는 배치 크기로 설정
+    history = model.fit(train_input_seq, train_output, validation_data=(valid_input_seq, valid_output),
+                        callbacks=[checkpoint, early_stop],
+                        epochs=200,
+                        batch_size=batch_size)  # 배치 크기 지정
 
 model.summary()
 
@@ -265,7 +242,7 @@ def month_schedule():
 
     # DataFrame을 JSON 형태의 문자열로 변환해서 전송
     print(json.loads(df.to_json(orient='records', force_ascii=False)))
-    return jsonify(json.loads(df.to_json(orient='records', force_ascii=False)))
+    return jsonify(df.to_dict(orient='records'))
 
 
 # {4} 홈페이지로 이동 (하는 주소 문자열 반환)
@@ -288,54 +265,3 @@ response_functions = {
 #     text = "여기는 뭐하는 곳이야"
 #     result = main(text)
 #     print(result)
-
-
-# # 예시 데이터
-# texts = ["What is your name?", "How can I help you?", "What time is it?", "Thank you!"]
-# responses = [0, 1, 2, 3]  # 각 문장에 대한 정수 응답
-#
-# # 데이터 전처리
-# tokenizer = Tokenizer()
-# tokenizer.fit_on_texts(texts)
-# sequences = tokenizer.texts_to_sequences(texts)
-# max_sequence_length = max(len(seq) for seq in sequences)
-# X = pad_sequences(sequences, maxlen=max_sequence_length)
-# y = np.array(responses)
-#
-# # 하이퍼파라미터
-# vocab_size = len(tokenizer.word_index) + 1
-# embedding_dim = 50
-# units = 64
-#
-# # 인코더
-# encoder_inputs = Input(shape=(None,))
-# encoder_embedding = Embedding(input_dim=vocab_size, output_dim=embedding_dim)(encoder_inputs)
-# encoder_lstm = LSTM(units, return_sequences=True)(encoder_embedding)
-#
-# # 디코더
-# decoder_inputs = Input(shape=(None,))
-# decoder_embedding = Embedding(input_dim=vocab_size, output_dim=embedding_dim)(decoder_inputs)
-# decoder_lstm = LSTM(units, return_sequences=True)(decoder_embedding)
-#
-# # Attention
-# attention = Attention()([decoder_lstm, encoder_lstm])
-# decoder_output = Dense(len(set(responses)), activation='softmax')(attention)
-#
-# # 모델 생성
-# model = Model([encoder_inputs, decoder_inputs], decoder_output)
-# model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-#
-# # 모델 훈련
-# # 훈련 데이터는 인코더 입력과 디코더 입력을 준비해야 함
-# # 디코더 입력은 보통 shift된 형태로 준비
-# decoder_input_data = np.zeros((len(texts), max_sequence_length))  # 디코더 입력
-# # 예시로 인덱스 0을 사용하여 초기 입력을 설정
-# model.fit([X, decoder_input_data], y, epochs=10)
-#
-# # 예측
-# # 예측 시에 인코더 입력에 대해 정수 응답을 예측
-# predictions = model.predict(X)
-# predicted_classes = np.argmax(predictions, axis=-1)
-#
-# # 결과 출력
-# print(predicted_classes)  # 예측된 정수 클래스
