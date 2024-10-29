@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 
-from sklearn.model_selection import train_test_split
 from src.service.salary_service import predictSalary
 # 데이터 전처리
 from konlpy.tag import Okt
@@ -15,7 +14,8 @@ from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 # 모델
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import BatchNormalization, Embedding, LSTM, Dense, Bidirectional, Dropout
+from tensorflow.keras.layers import BatchNormalization, Embedding, LSTM, Dense, Bidirectional, Dropout, Input, Attention
+from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, LearningRateScheduler
 
 # [1] 데이터 준비: csv, db, 함수(코드/메모리) 등
@@ -40,18 +40,30 @@ def load_player_names(filename='crawl_csv/stat2024.csv'):
 player_names = load_player_names()
 
 # [2] 데이터 전처리
-inputs = list(data['Q'])  # 질문
-outputs = list(data['A'])  # 응답
+# data 데이터프레임의 데이터 섞기
+data = data.sample(frac=1, random_state=7).reset_index(drop=True)  # frac: 섞을 비율, 1이므로 전체 데이터 섞기
 
+training_size = int(len(data) * 0.8)  # 전체 데이터에서 훈련용 데이터의 비율
+train_sentences = data[:training_size]  # 전체 데이터에서 훈련 데이터 비율까지 슬라이싱
+valid_sentences = data[training_size:]  # 나머지는 테스트 데이터 슬라이싱
+train_inputs = list(train_sentences['Q'])  # 훈련 데이터 질문
+train_outputs = list(train_sentences['A'])  # 훈련 데이터의 응답
+valid_inputs = list(valid_sentences['Q'])  # 검증 데이터 질문
+valid_outputs = list(valid_sentences['A'])  # 검증 데이터 응답
+print("==== train-test split ====")
+print(train_inputs[:5])
+print(train_outputs[:5])
+print(valid_inputs[:5])
+print(valid_outputs[:5])
 
 okt = Okt()
 
 
 # 1. 질문 전처리
-def preprocess(question):
+def preprocess(text):
     # 정규표현식 수정: 영어 알파벳 포함
     # result = re.sub(r'[^0-9ㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z ]', '', text)
-    result = re.sub(r'[^ㄱ-ㅎㅏ-ㅣ가-힣 ]', '', question)
+    result = re.sub(r'[^ㄱ-ㅎㅏ-ㅣ가-힣 ]', '', text)
     # 형태소 분석
     result = okt.pos(result)
     # 명사(Noun), 동사(Verb), 형용사(Adjective) 선택 가능
@@ -64,7 +76,11 @@ def preprocess(question):
 
 
 # 전처리 실행  # 모든 질문을 전처리 해서 새로운 리스트
-processed_inputs = [preprocess(question) for question in inputs]
+train_inputs_pre = [preprocess(question) for question in train_inputs]
+valid_inputs_pre = [preprocess(question) for question in valid_inputs]
+print("==== preprocessed ====")
+print(train_inputs_pre[:5])
+print(valid_inputs_pre[:5])
 # print( processed_inputs )
 
 # 3. 토크나이저
@@ -76,7 +92,7 @@ tokenizer.fit_on_texts(processed_inputs)  # 전처리된 단어 목록을 단어
 input_sequences = tokenizer.texts_to_sequences(processed_inputs)  # 벡터화
 # print( input_sequences )
 
-max_sequence_length = max(len(문장) for 문장 in input_sequences)  # 여러 문장중에 가장 긴 단어의 개수
+max_sequence_length = max(len(sentence) for sentence in input_sequences)  # 여러 문장중에 가장 긴 단어의 개수
 # print( max_sequence_length ) # '좋은 책 추천 해 주세요' # 5
 
 input_sequences = pad_sequences(input_sequences, maxlen=max_sequence_length)  # 패딩화 # 가장 길이가 긴 문장 기준으로 0으로 채우기
@@ -99,10 +115,10 @@ model = Sequential([
     Bidirectional(LSTM(256, return_sequences=True, kernel_regularizer=tf.keras.regularizers.l2(0.01))),
     BatchNormalization(),
     Dropout(0.3),
-    # 또 다른 LSTM 레이어 추가
-    Bidirectional(LSTM(128)),  # return_sequences=False
-    BatchNormalization(),
-    Dropout(0.3),
+    # # 또 다른 LSTM 레이어 추가
+    # Bidirectional(LSTM(128)),  # return_sequences=False
+    # BatchNormalization(),
+    # Dropout(0.3),
     # 출력층
     Dense(len(outputs), activation='softmax', kernel_regularizer=tf.keras.regularizers.l2(0.01))
 ])
@@ -119,8 +135,8 @@ def scheduler(epoch, lr):
     return lr
 
 
-# 3. 데이터셋 분리
-input_train, input_val, output_train, output_val = train_test_split(input_sequences, output_sequences, test_size=0.2)
+# # 3. 데이터셋 분리
+# input_train, input_val, output_train, output_val = train_test_split(input_sequences, output_sequences, test_size=0.2)
 
 # 체크포인트 및 조기 중단 설정
 checkpoint_path = 'best_performed_model.ckpt'
@@ -132,7 +148,7 @@ early_stop = EarlyStopping(monitor='loss', patience=5)
 # TODO: 정확도가 낮을 때 gemini API로 보내기?
 # TODO: python 3.8 수업 버전으로 써보기
 batch_size = 32  # 원하는 배치 크기로 설정
-history = model.fit(input_train, output_train, validation_data=(input_val, output_val),
+history = model.fit(input_,
                     callbacks=[checkpoint, early_stop],
                     epochs=20,
                     batch_size=batch_size)  # 배치 크기 지정
@@ -246,3 +262,54 @@ response_functions = {
 #     text = "여기는 뭐하는 곳이야"
 #     result = main(text)
 #     print(result)
+
+
+# # 예시 데이터
+# texts = ["What is your name?", "How can I help you?", "What time is it?", "Thank you!"]
+# responses = [0, 1, 2, 3]  # 각 문장에 대한 정수 응답
+#
+# # 데이터 전처리
+# tokenizer = Tokenizer()
+# tokenizer.fit_on_texts(texts)
+# sequences = tokenizer.texts_to_sequences(texts)
+# max_sequence_length = max(len(seq) for seq in sequences)
+# X = pad_sequences(sequences, maxlen=max_sequence_length)
+# y = np.array(responses)
+#
+# # 하이퍼파라미터
+# vocab_size = len(tokenizer.word_index) + 1
+# embedding_dim = 50
+# units = 64
+#
+# # 인코더
+# encoder_inputs = Input(shape=(None,))
+# encoder_embedding = Embedding(input_dim=vocab_size, output_dim=embedding_dim)(encoder_inputs)
+# encoder_lstm = LSTM(units, return_sequences=True)(encoder_embedding)
+#
+# # 디코더
+# decoder_inputs = Input(shape=(None,))
+# decoder_embedding = Embedding(input_dim=vocab_size, output_dim=embedding_dim)(decoder_inputs)
+# decoder_lstm = LSTM(units, return_sequences=True)(decoder_embedding)
+#
+# # Attention
+# attention = Attention()([decoder_lstm, encoder_lstm])
+# decoder_output = Dense(len(set(responses)), activation='softmax')(attention)
+#
+# # 모델 생성
+# model = Model([encoder_inputs, decoder_inputs], decoder_output)
+# model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+#
+# # 모델 훈련
+# # 훈련 데이터는 인코더 입력과 디코더 입력을 준비해야 함
+# # 디코더 입력은 보통 shift된 형태로 준비
+# decoder_input_data = np.zeros((len(texts), max_sequence_length))  # 디코더 입력
+# # 예시로 인덱스 0을 사용하여 초기 입력을 설정
+# model.fit([X, decoder_input_data], y, epochs=10)
+#
+# # 예측
+# # 예측 시에 인코더 입력에 대해 정수 응답을 예측
+# predictions = model.predict(X)
+# predicted_classes = np.argmax(predictions, axis=-1)
+#
+# # 결과 출력
+# print(predicted_classes)  # 예측된 정수 클래스
