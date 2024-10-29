@@ -4,6 +4,14 @@ import csv
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        # 메모리 성장 허용
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+    except RuntimeError as e:
+        print(e)
 
 from src.service.salary_service import predictSalary
 # 데이터 전처리
@@ -21,7 +29,8 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, LearningR
 # [1] 데이터 준비: csv, db, 함수(코드/메모리) 등
 # 1. 챗봇 질문 응답 데이터
 data = pd.read_csv("service/챗봇데이터.csv")
-
+print(data.head())
+data.to_csv("processed_data.csv", index=False, encoding='utf-8')
 # 2. 불용어
 # https://gist.githubusercontent.com/spikeekips/40eea22ef4a89f629abd87eed535ac6a/raw/4f7a635040442a995568270ac8156448f2d1f0cb/stopwords-ko.txt 사용
 stopwords = pd.read_csv("service/stopwords-ko.txt", encoding="utf-8", header=None)[0].tolist()
@@ -40,21 +49,25 @@ def load_player_names(filename='crawl_csv/stat2024.csv'):
 player_names = load_player_names()
 
 # [2] 데이터 전처리
+
 # data 데이터프레임의 데이터 섞기
 data = data.sample(frac=1, random_state=7).reset_index(drop=True)  # frac: 섞을 비율, 1이므로 전체 데이터 섞기
+# 2. 데이터 전처리
+inputs = list(data['Q'])  # 질문
+outputs = list(data['A'])  # 응답
 
-training_size = int(len(data) * 0.8)  # 전체 데이터에서 훈련용 데이터의 비율
-train_sentences = data[:training_size]  # 전체 데이터에서 훈련 데이터 비율까지 슬라이싱
-valid_sentences = data[training_size:]  # 나머지는 테스트 데이터 슬라이싱
-train_inputs = list(train_sentences['Q'])  # 훈련 데이터 질문
-train_outputs = list(train_sentences['A'])  # 훈련 데이터의 응답
-valid_inputs = list(valid_sentences['Q'])  # 검증 데이터 질문
-valid_outputs = list(valid_sentences['A'])  # 검증 데이터 응답
-print("==== train-test split ====")
-print(train_inputs[:5])
-print(train_outputs[:5])
-print(valid_inputs[:5])
-print(valid_outputs[:5])
+
+# train_sentences = data[:training_size]  # 전체 데이터에서 훈련 데이터 비율까지 슬라이싱
+# valid_sentences = data[training_size:]  # 나머지는 테스트 데이터 슬라이싱
+# train_inputs = list(train_sentences['Q'])  # 훈련 데이터 질문
+# train_outputs = list(train_sentences['A'])  # 훈련 데이터의 응답
+# valid_inputs = list(valid_sentences['Q'])  # 검증 데이터 질문
+# valid_outputs = list(valid_sentences['A'])  # 검증 데이터 응답
+# print("==== train-test split ====")
+# print(train_inputs[:5])
+# print(train_outputs[:5])
+# print(valid_inputs[:5])
+# print(valid_outputs[:5])
 
 okt = Okt()
 
@@ -76,20 +89,23 @@ def preprocess(text):
 
 
 # 전처리 실행  # 모든 질문을 전처리 해서 새로운 리스트
-train_inputs_pre = [preprocess(question) for question in train_inputs]
-valid_inputs_pre = [preprocess(question) for question in valid_inputs]
-print("==== preprocessed ====")
-print(train_inputs_pre[:5])
-print(valid_inputs_pre[:5])
+processed_inputs = [preprocess(question) for question in list(data['Q'])]
+# train_inputs_pre = [preprocess(question) for question in train_inputs]
+# valid_inputs_pre = [preprocess(question) for question in valid_inputs]
+# print("==== preprocessed ====")
+# print(train_inputs_pre[:5])
+# print(valid_inputs_pre[:5])
 # print( processed_inputs )
 
 # 3. 토크나이저
 
 tokenizer = Tokenizer(filters='', lower=False, oov_token='<OOV>')  # 변수명=클래스명()
 tokenizer.fit_on_texts(processed_inputs)  # 전처리된 단어 목록을 단어사전 생성
-# print( tokenizer.word_index ) # 사전확인
+print( tokenizer.word_index ) # 사전확인
 
 input_sequences = tokenizer.texts_to_sequences(processed_inputs)  # 벡터화
+# train_inputs_seq = tokenizer.texts_to_sequences(train_inputs_pre)
+# valid_inputs_seq = tokenizer.texts_to_sequences(train)
 # print( input_sequences )
 
 max_sequence_length = max(len(sentence) for sentence in input_sequences)  # 여러 문장중에 가장 긴 단어의 개수
@@ -97,13 +113,23 @@ max_sequence_length = max(len(sentence) for sentence in input_sequences)  # 여�
 
 input_sequences = pad_sequences(input_sequences, maxlen=max_sequence_length)  # 패딩화 # 가장 길이가 긴 문장 기준으로 0으로 채우기
 # print( input_sequences ) #  '오늘 날씨 어때요' --> [ 2  3  4 ] --> [ 0 0 2 3 4 ] # 좋은 성능을 만들기 위해 차원을 통일
+training_size = int(len(data) * 0.8)  # 전체 데이터에서 훈련용 데이터의 비율
+train_input_seq = input_sequences[:training_size]  # 전체 데이터에서 훈련 데이터 비율까지 슬라이싱
+valid_input_seq = input_sequences[training_size:]  # 나머지는 테스트 데이터 슬라이싱
+
+print(train_input_seq[:5])
+print(valid_input_seq[:5])
+
 
 # 종속변수 # 데이터프레임 --> 일반 배열 변환
 # output_sequences = np.array(  outputs  )
 # print( output_sequences )
 output_sequences = np.array(range(len(outputs)))
+train_output = output_sequences[:training_size]
+valid_output = output_sequences[training_size:]
+print(train_output[:5])
+print(valid_output[:5])
 # print( output_sequences )
-
 
 # [3] 모델 구성
 model = Sequential([
@@ -116,9 +142,9 @@ model = Sequential([
     BatchNormalization(),
     Dropout(0.3),
     # # 또 다른 LSTM 레이어 추가
-    # Bidirectional(LSTM(128)),  # return_sequences=False
-    # BatchNormalization(),
-    # Dropout(0.3),
+    Bidirectional(LSTM(128)),  # return_sequences=False
+    BatchNormalization(),
+    Dropout(0.3),
     # 출력층
     Dense(len(outputs), activation='softmax', kernel_regularizer=tf.keras.regularizers.l2(0.01))
 ])
@@ -139,8 +165,8 @@ def scheduler(epoch, lr):
 # input_train, input_val, output_train, output_val = train_test_split(input_sequences, output_sequences, test_size=0.2)
 
 # 체크포인트 및 조기 중단 설정
-checkpoint_path = 'best_performed_model.ckpt'
-checkpoint = ModelCheckpoint(checkpoint_path, save_weights_only=True, save_best_only=True, monitor='loss', verbose=1)
+# checkpoint_path = 'best_performed_model.ckpt'
+# checkpoint = ModelCheckpoint(checkpoint_path, save_weights_only=True, save_best_only=True, monitor='loss', verbose=1)
 early_stop = EarlyStopping(monitor='loss', patience=5)
 
 # 학습
@@ -148,8 +174,8 @@ early_stop = EarlyStopping(monitor='loss', patience=5)
 # TODO: 정확도가 낮을 때 gemini API로 보내기?
 # TODO: python 3.8 수업 버전으로 써보기
 batch_size = 32  # 원하는 배치 크기로 설정
-history = model.fit(input_,
-                    callbacks=[checkpoint, early_stop],
+history = model.fit(train_input_seq, train_output, validation_data=(valid_input_seq, valid_output),
+                    callbacks=[early_stop],
                     epochs=20,
                     batch_size=batch_size)  # 배치 크기 지정
 
@@ -164,12 +190,12 @@ def response(user_input):
     predict = model.predict(text)  # 3. 예측
     print("predict: ", predict)
     max_index = np.argmax(predict)  # 4. 결과 # 가장 높은 확률의 인덱스 찾기
-    confidence = predict[0][max_index]  # 예측 확률
-
-    # 예측 확률이 특정 임계값 이하일 경우
-    if confidence < 0.5:  # 예: 0.5 이하일 때
-        print("예측의 정확도가 낮습니다. 다른 질문을 해보세요.")  # 콘솔 출력
-        return None  # 함수 출력하지 않음
+    # confidence = predict[0][max_index]  # 예측 확률
+    #
+    # # 예측 확률이 특정 임계값 이하일 경우
+    # if confidence < 0.5:  # 예: 0.5 이하일 때
+    #     print("예측의 정확도가 낮습니다. 다른 질문을 해보세요.")  # 콘솔 출력
+    #     return None  # 함수 출력하지 않음
 
     msg = outputs[max_index]  # max_index : 예측한 질문의 위치 . # msg : 예윽한 질문의 위치에 따른 응답
 
