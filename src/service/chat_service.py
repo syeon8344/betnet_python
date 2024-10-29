@@ -13,7 +13,7 @@ import requests
 import csv
 
 from src.service.salary_service import predictSalary
-import src.ball_gpt.seq2seq.seq2seqfromclass as s2s
+
 
 # RNN 기본구조 : 1. 데이터수집 2.전처리 3.토큰화/패딩 4. 모델구축 5.모델학습 6.모델평가(튜닝) 7.모델예측
 
@@ -103,7 +103,7 @@ okt = Okt()
 def preprocess(text):
     # 정규표현식 수정: 영어 알파벳 포함
     # result = re.sub(r'[^0-9ㄱ-ㅎㅏ-ㅣ가-힣a-zA-Z ]', '', text)
-    result = re.sub(r'[^ㄱ-ㅎㅏ-ㅣ가-힣]', '', text)
+    result = re.sub(r'[^ㄱ-ㅎㅏ-ㅣ가-힣 ]', '', text)
     # 형태소 분석
     result = okt.pos(result)
     # 명사(Noun), 동사(Verb), 형용사(Adjective) 선택 가능
@@ -192,10 +192,10 @@ early_stop = EarlyStopping(monitor='loss', patience=5)
 batch_size = 32  # 원하는 배치 크기로 설정
 history = model.fit(input_train, output_train, validation_data=(input_val, output_val),
                     callbacks=[checkpoint, early_stop],
-                    epochs=30,
+                    epochs=200,
                     batch_size=batch_size)  # 배치 크기 지정
 
-model_seq2 = s2s.Encoder()
+
 
 
 
