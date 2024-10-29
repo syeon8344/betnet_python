@@ -3,7 +3,6 @@ from src.app import app
 from flask import Flask, request, jsonify
 
 import google.generativeai as genai
-#from google.generativeai.types import HarmCategory, HarmBlockThreshold
 # 터미널에 pip install -U google-generativeai
 """
 python 3.8 버전으로 gemini API 사용하기
@@ -32,15 +31,7 @@ def geminiService(keyword):
     chat = model.start_chat(history=[])
     # 사용자의 메시지를 챗봇 모델에 전송합니다.
     print( keyword )
-    response = chat.send_message(keyword,
-                                 # safety_settings={
-                                 #     HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-                                 #     HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-                                 #     HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-                                 #     HarmCategory.HARM_CATEGORY_UNSPECIFIED: HarmBlockThreshold.BLOCK_NONE,
-                                 #     HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE
-                                 # }
-                                 )
+    response = chat.send_message(keyword)
     # 챗봇의 응답을 반환합니다.
     print(response.text)
     return response.text
