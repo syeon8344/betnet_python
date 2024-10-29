@@ -63,6 +63,7 @@ def preprocess(question):
     return " ".join(result).strip()
 
 
+
 # 전처리 실행  # 모든 질문을 전처리 해서 새로운 리스트
 processed_inputs = [preprocess(question) for question in inputs]
 # print( processed_inputs )
@@ -120,7 +121,7 @@ def scheduler(epoch, lr):
 
 
 # 3. 데이터셋 분리
-input_train, input_val, output_train, output_val = train_test_split(input_sequences, output_sequences, test_size=0.2)
+# input_train, input_val, output_train, output_val = train_test_split(input_sequences, output_sequences, test_size=0.2)
 
 # 체크포인트 및 조기 중단 설정
 checkpoint_path = 'best_performed_model.ckpt'
@@ -132,7 +133,7 @@ early_stop = EarlyStopping(monitor='loss', patience=5)
 # TODO: 정확도가 낮을 때 gemini API로 보내기?
 # TODO: python 3.8 수업 버전으로 써보기
 batch_size = 32  # 원하는 배치 크기로 설정
-history = model.fit(input_train, output_train, validation_data=(input_val, output_val),
+history = model.fit(input_sequences, output_sequences,
                     callbacks=[checkpoint, early_stop],
                     epochs=20,
                     batch_size=batch_size)  # 배치 크기 지정
@@ -151,7 +152,7 @@ def response(user_input):
     confidence = predict[0][max_index]  # 예측 확률
 
     # 예측 확률이 특정 임계값 이하일 경우
-    if confidence < 0.5:  # 예: 0.5 이하일 때
+    if confidence < 0.01:  # 예: 0.5 이하일 때
         print("예측의 정확도가 낮습니다. 다른 질문을 해보세요.")  # 콘솔 출력
         return None  # 함수 출력하지 않음
 
@@ -230,12 +231,58 @@ def month_schedule():
 def redirect_home(user_input):
     return 'http://localhost:8080/'
 
+# {5} 뉴스 이동
+def redirect_news(user_input):
+    return 'http://localhost:8080/article'
+
+# {6} 굿즈마켓 이동
+def redirect_market(user_input):
+    return 'http://localhost:8080/market'
+
+# {7} 설문조사 이동
+def redirect_poll(user_input):
+    return 'http://localhost:8080/poll'
+
+# {8} 게시판 이동
+def redirect_board(user_input):
+    return 'http://localhost:8080/board'
+
+# {9} 제미니 이동
+def redirect_gemini(user_input):
+    return 'http://localhost:8080/gemini'
+
+# {10} 타자기록 이동
+def redirect_hitter(user_input):
+    return 'http://localhost:8080/hitter'
+
+# {11} 투수기록 이동
+def redirect_pitcher(user_input):
+    return 'http://localhost:8080/pitcher'
+
+# {12} 주루기록 이동
+def redirect_runner(user_input):
+    return 'http://localhost:8080/runner'
+
+# {13} 순위기록 이동
+def redirect_rank(user_input):
+    return 'http://localhost:8080/rank'
+
 
 # 응답으로 실행할 함수 dict {응답 숫자 : 실행할 함수}
 response_functions = {
     1: salary,
     2: month_schedule,
-    4: redirect_home
+    4: redirect_home,
+    5: redirect_news,
+    6: redirect_market,
+    7: redirect_poll,
+    8: redirect_board,
+    9: redirect_gemini,
+    10: redirect_hitter,
+    11: redirect_pitcher,
+    12: redirect_runner,
+    13: redirect_rank,
+
     # 3 : 게시판 글쓰기
     # 월간 경기 일정 띄우기
     #
