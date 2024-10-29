@@ -123,8 +123,8 @@ def scheduler(epoch, lr):
 input_train, input_val, output_train, output_val = train_test_split(input_sequences, output_sequences, test_size=0.2)
 
 # 체크포인트 및 조기 중단 설정
-checkpoint_path = 'best_performed_model.ckpt'
-checkpoint = ModelCheckpoint(checkpoint_path, save_weights_only=True, save_best_only=True, monitor='loss', verbose=1)
+# checkpoint_path = 'best_performed_model.ckpt'
+# checkpoint = ModelCheckpoint(checkpoint_path, save_weights_only=True, save_best_only=True, monitor='loss', verbose=1)
 early_stop = EarlyStopping(monitor='loss', patience=5)
 
 # 학습
@@ -132,8 +132,9 @@ early_stop = EarlyStopping(monitor='loss', patience=5)
 # TODO: 정확도가 낮을 때 gemini API로 보내기?
 # TODO: python 3.8 수업 버전으로 써보기
 batch_size = 16  # 원하는 배치 크기로 설정
-history = model.fit(input_train, output_train, validation_data=(input_val, output_val),
-                    callbacks=[checkpoint, early_stop],
+history = model.fit(input_sequences, output_sequences,
+                    #callbacks=[checkpoint, early_stop],
+                    callbacks=[early_stop],
                     epochs=20,
                     batch_size=batch_size)  # 배치 크기 지정
 
