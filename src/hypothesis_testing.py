@@ -536,12 +536,12 @@ def hypoRisp() :
     win_data['승률'] = win_data['승률'].round(3)  # 소수점 반올림
 
     merge_data = risp_data.merge(win_data[["팀명","승률"]], on="팀명")
-    print(merge_data)
+    # print(merge_data)
 
     회귀모형수식 = "승률 ~ RISP"
     선형회귀모델 = ols(회귀모형수식, data=merge_data).fit()
 
-    print(선형회귀모델.summary())
+    # print(선형회귀모델.summary())
 
     '''
                                     OLS Regression Results                            
@@ -596,12 +596,12 @@ def hypoSb() :
     win_data['승률'] = win_data['승률'].round(3)  # 소수점 반올림
 
     merge_data = sbData.merge(win_data[["팀명","승률"]], on="팀명")
-    print(merge_data)
+    # print(merge_data)
 
     회귀모형수식 = "승률 ~ SB"
     선형회귀모델 = ols(회귀모형수식, data=merge_data).fit()
 
-    print(선형회귀모델.summary())
+    # print(선형회귀모델.summary())
 
     '''
          OLS Regression Results                            

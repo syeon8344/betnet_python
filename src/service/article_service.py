@@ -31,7 +31,7 @@ def getNaverSearch(node , src , page_start , display):
     # print(f'>>code3 요청URL : {url}') # 확인
     responseDecode = getRequestUrl(url)   # 5. url 요청을 하고 응답객체 받기 , [code2]
 
-    if responseDecode == None: return None    # 6. 만약에 url 객체가 없으면 None 반환
+    if responseDecode is None: return None    # 6. 만약에 url 객체가 없으면 None 반환
     else: return json.loads(responseDecode) # 7. 응답객체가 있으면 JSON 형식으로 변환
         # json.loads(문자열) : JSON 형식으로 변환
 
@@ -111,7 +111,7 @@ def for_text(srcText):
             total = jsonResponse['total']   # 6. 전체 검색 결과 개수
             print(total)
             # 7. 응답객체가 None이 아니면서 응답객체의 display 가 0이 아니면 무한 반복 , url 응답객체가 없을때까지
-            while ((jsonResponse != None) and (jsonResponse['display'] != 0)):
+            while (jsonResponse is not None) and (jsonResponse['display'] != 0):
 
                 # 8. 검색결과 리스트(items)에서 하나씩 item(post) 호출 # 공문 : https://developers.naver.com/docs/serviceapi/search/news/news.md#%EB%89%B4%EC%8A%A4
                 for post in jsonResponse['items']:  # 응답받은 검색 결과 중에서 한 개를 저장한 객체
@@ -153,7 +153,7 @@ def main(srcText):
             total = jsonResponse['total']   # 6. 전체 검색 결과 개수
             print(total)
             # 7. 응답객체가 None이 아니면서 응답객체의 display 가 0이 아니면 무한 반복 , url 응답객체가 없을때까지
-            while ((jsonResponse != None) and (jsonResponse['display'] != 0)):
+            while (jsonResponse is not None) and (jsonResponse['display'] != 0):
 
                 # 8. 검색결과 리스트(items)에서 하나씩 item(post) 호출 # 공문 : https://developers.naver.com/docs/serviceapi/search/news/news.md#%EB%89%B4%EC%8A%A4
                 for post in jsonResponse['items']:  # 응답받은 검색 결과 중에서 한 개를 저장한 객체
@@ -194,7 +194,7 @@ def get_kbo_article(srcText):
             total = jsonResponse['total']  # 6. 전체 검색 결과 개수
             print(total)
             # 7. 응답객체가 None이 아니면서 응답객체의 display 가 0이 아니면 무한 반복 , url 응답객체가 없을때까지
-            while ((jsonResponse != None) and (jsonResponse['display'] != 0)):
+            while (jsonResponse is not None) and (jsonResponse['display'] != 0):
 
                 # 8. 검색결과 리스트(items)에서 하나씩 item(post) 호출 # 공문 : https://developers.naver.com/docs/serviceapi/search/news/news.md#%EB%89%B4%EC%8A%A4
                 for post in jsonResponse['items']:  # 응답받은 검색 결과 중에서 한 개를 저장한 객체
