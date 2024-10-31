@@ -25,9 +25,9 @@ from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 # 모델
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import BatchNormalization, Embedding, LSTM, Dense, Bidirectional, Dropout, LayerNormalization
-from tensorflow.keras.models import Model
+from tensorflow.keras.layers import BatchNormalization, Embedding, LSTM, Dense, Bidirectional, Dropout
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, LearningRateScheduler
+import matplotlib.pyplot as plt
 
 # [1] 데이터 준비: csv, db, 함수(코드/메모리) 등
 # 1. 챗봇 질문 응답 데이터
@@ -36,6 +36,8 @@ data = pd.read_csv("service/챗봇데이터.csv", header=0)
 # 2. 불용어
 # https://gist.githubusercontent.com/spikeekips/40eea22ef4a89f629abd87eed535ac6a/raw/4f7a635040442a995568270ac8156448f2d1f0cb/stopwords-ko.txt 사용
 stopwords = pd.read_csv("service/stopwords-ko.txt", encoding="utf-8", header=None)[0].tolist()
+
+
 # print(stopwords)
 
 
@@ -52,11 +54,12 @@ player_names = load_player_names()
 
 # [2] 데이터 전처리
 
-# data 데이터프레임의 데이터 섞기
-data = data.sample(frac=1, random_state=7).reset_index(drop=True)  # frac: 섞을 비율, 1이므로 전체 데이터 섞기
+# # data 데이터프레임의 데이터 섞기
+# data = data.sample(frac=1, random_state=7).reset_index(drop=True)  # frac: 섞을 비율, 1이므로 전체 데이터 섞기
 # 2. 데이터 전처리
 inputs = list(data['Q'])  # 질문
 outputs = list(data['A'])  # 응답
+
 
 okt = Okt()
 
@@ -84,7 +87,7 @@ processed_inputs = [preprocess(question) for question in list(data['Q'])]
 
 tokenizer = Tokenizer(filters='', lower=False, oov_token='<OOV>')  # 변수명=클래스명()
 tokenizer.fit_on_texts(processed_inputs)  # 전처리된 단어 목록을 단어사전 생성
-print( tokenizer.word_index ) # 사전확인
+print(tokenizer.word_index)  # 사전확인
 
 input_sequences = tokenizer.texts_to_sequences(processed_inputs)  # 벡터화
 
@@ -93,17 +96,34 @@ max_sequence_length = max(len(sentence) for sentence in input_sequences)  # 여�
 
 input_sequences = pad_sequences(input_sequences, maxlen=max_sequence_length)  # 패딩화 # 가장 길이가 긴 문장 기준으로 0으로 채우기
 # print( input_sequences ) #  '오늘 날씨 어때요' --> [ 2  3  4 ] --> [ 0 0 2 3 4 ] # 좋은 성능을 만들기 위해 차원을 통일
-training_size = int(len(data) * 0.8)  # 전체 데이터에서 훈련용 데이터의 비율
-train_input_seq = input_sequences[:training_size]  # 전체 데이터에서 훈련 데이터 비율까지 슬라이싱
-valid_input_seq = input_sequences[training_size:]  # 나머지는 테스트 데이터 슬라이싱
+# training_size = int(len(data) * 0.8)  # 전체 데이터에서 훈련용 데이터의 비율
+# train_input_seq = input_sequences[:training_size]  # 전체 데이터에서 훈련 데이터 비율까지 슬라이싱
+# valid_input_seq = input_sequences[training_size:]  # 나머지는 테스트 데이터 슬라이싱
 
 # 종속변수 # 데이터프레임 --> 일반 배열 변환
 # output_sequences = np.array(  outputs  )
 # print( output_sequences )
 output_sequences = np.array(range(len(outputs)))
-train_output = output_sequences[:training_size]
-valid_output = output_sequences[training_size:]
+# train_output = output_sequences[:training_size]
+# valid_output = output_sequences[training_size:]
 
+# 1. 전체 데이터의 인덱스 생성  # [0, 1, 2, 3, ... ]
+total_indices = np.arange(len(input_sequences))
+
+# 2. 랜덤으로 20%의 인덱스 선택
+test_size = int(0.2 * len(input_sequences))
+test_indices = np.random.choice(total_indices, size=test_size, replace=False)
+
+# 3. 훈련 데이터셋 및 검증 데이터셋 생성  # np.setdiff1d: A 배열에서 B 배열의 값들을 뺀 배열을 반환
+train_indices = np.setdiff1d(total_indices, test_indices)  # 배열 내 값 == 인덱스들
+
+# 4. 훈련용 질문 및 응답
+processed_train_inputs = [input_sequences[i] for i in train_indices]
+processed_train_outputs = [output_sequences[i] for i in train_indices]
+
+# 5. 테스트용 질문 및 응답
+processed_test_inputs = [input_sequences[i] for i in test_indices]
+processed_test_outputs = [output_sequences[i] for i in test_indices]
 
 # [3] 모델 구성
 model = Sequential([
@@ -123,7 +143,6 @@ model = Sequential([
     Dense(len(outputs), activation='softmax', kernel_regularizer=tf.keras.regularizers.l2(0.01))
 ])
 
-
 # [4] 모델 컴파일
 model.compile(loss='sparse_categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
               metrics=['accuracy'])
@@ -136,8 +155,6 @@ def scheduler(epoch, lr):
     return lr
 
 
-
-
 # # 3. 데이터셋 분리
 # 체크포인트 콜백 설정 (가중치만 저장)
 checkpoint = ModelCheckpoint('ballgpt_model_weights.h5', save_weights_only=True, save_best_only=True)
@@ -146,18 +163,106 @@ early_stop = EarlyStopping(monitor='val_loss', patience=5, verbose=1, restore_be
 # 일정 에포크 이상부터 학습률 감소 (에포크가 진행될수록 세부 조정의 효과)
 lr_scheduler = LearningRateScheduler(scheduler)
 
-if os.path.exists('ballgpt_model_weights.h5'):
-    model.load_weights('ballgpt_model_weights.h5')
-else:
-    # 학습
-    batch_size = 64  # 원하는 배치 크기로 설정
-    # 전체 챗봇데이터로 훈련하고 검증은 20퍼센트 샘플 추출해서 진행
-    history = model.fit(input_sequences, output_sequences, validation_data=(valid_input_seq, valid_output),
-                        callbacks=[checkpoint, early_stop, lr_scheduler],
-                        epochs=200,
-                        batch_size=batch_size)  # 배치 크기 지정
+
+# if os.path.exists('ballgpt_model_weights.h5'):
+#     model.load_weights('ballgpt_model_weights.h5')
+# else:
+# 학습
+batch_size = 64  # 원하는 배치 크기로 설정
+# 전체 챗봇데이터로 훈련하고 검증은 20퍼센트 샘플 추출해서 진행
+history = model.fit(processed_train_inputs, processed_train_outputs, validation_data=(processed_test_inputs, processed_test_outputs),
+                    callbacks=[checkpoint, early_stop, lr_scheduler],
+                    epochs=200,
+                    batch_size=batch_size)  # 배치 크기 지정
 
 model.summary()
+# TODO: 응답이 같은 인덱스들이 있다는 것을 사용해서 그룹화하면 좋지 않을까?
+
+# ============ 시각화 ===============
+import matplotlib.font_manager as fm
+import seaborn as sns
+from sklearn.metrics import confusion_matrix, classification_report
+
+# 폰트 설정
+font_path = "C:/Windows/Fonts/malgun.ttf"
+font_prop = fm.FontProperties(fname=font_path)
+
+# 마이너스 기호 문제 해결하기
+plt.rcParams['axes.unicode_minus'] = False
+plt.rc('font', family=font_prop.get_name())
+
+
+def visualize_model_performance(train_output, output_classes):
+    # Confusion Matrix 혼동 매트릭스
+    """
+                        예측된 긍정 (Positive)	예측된 부정 (Negative)
+    실제 긍정 (Positive)	    진양성 (TP)	            거짓음성 (FN)
+    실제 부정 (Negative)	    거짓양성 (FP)	        진음성 (TN)
+    """
+    print("CM")
+    cm = confusion_matrix(train_output, output_classes)
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=np.arange(num_classes), yticklabels=np.arange(num_classes))
+    plt.xlabel('예측된 클래스')
+    plt.ylabel('실제 클래스')
+    plt.title('혼동 행렬')
+    plt.show()
+
+    # Classification Report
+    report = classification_report(train_output, output_classes)
+    print("분류 보고서:\n", report)
+
+    # 실제 값과 예측 값의 산점도
+    print("Scatter")
+    plt.figure(figsize=(10, 6))
+    plt.scatter(train_output, output_classes, alpha=0.6)
+    plt.plot([train_output.min(), train_output.max()], [train_output.min(), train_output.max()], 'k--', lw=2)  # y=x 선
+    plt.xlabel('실제 값')
+    plt.ylabel('예측 값')
+    plt.title('실제 값 vs 예측 값')
+    plt.grid(True)
+    plt.show()
+
+    # 예측 확률 분포 히스토그램
+    print("histogram")
+    plt.figure(figsize=(10, 6))
+    plt.hist(output_classes, bins=30, alpha=0.6, label='예측된 클래스', color='orange')
+    plt.hist(train_output, bins=30, alpha=0.6, label='실제 클래스', color='blue')
+    plt.xlabel('클래스 레이블')
+    plt.ylabel('빈도')
+    plt.title('실제 클래스 vs 예측 클래스 분포')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+
+# 예시로 모델 예측 수행 후 시각화
+output_predict = model.predict(train_input_seq)
+output_classes = np.argmax(output_predict, axis=1)  # 예측 클래스
+print("visualizing")
+print("output_classes: ", output_classes.shape)
+print("train_output: ", train_output.shape)
+print("Unique classes in output_classes:", np.unique(output_classes))
+print("Unique classes in train_output:", np.unique(train_output))
+visualize_model_performance(train_output, output_classes)
+
+
+# 손실 함수 시각화
+def plot_loss(history):
+    plt.figure(figsize=(10, 6))
+    plt.plot(history.history['loss'], label='Train Loss')
+    plt.plot(history.history['val_loss'], label='Validation Loss')
+    plt.title('Loss over Epochs')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+
+plot_loss(history)
+
+# =========== 시각화 ================
 
 
 # 4. 예측하기
@@ -245,41 +350,51 @@ def month_schedule(user_input):
 def get_news(user_input):
     pass
 
+
 # {4} 홈페이지로 이동 (하는 주소 문자열 반환)
 def redirect_home(user_input):
     return 'http://localhost:8080/'
+
 
 # {5} 뉴스 이동
 def redirect_news(user_input):
     return 'http://localhost:8080/article'
 
+
 # {6} 굿즈마켓 이동
 def redirect_market(user_input):
     return 'http://localhost:8080/market'
+
 
 # {7} 설문조사 이동
 def redirect_poll(user_input):
     return 'http://localhost:8080/poll'
 
+
 # {8} 게시판 이동
 def redirect_board(user_input):
     return 'http://localhost:8080/board'
+
 
 # {9} 제미니 이동
 def redirect_gemini(user_input):
     return 'http://localhost:8080/gemini'
 
+
 # {10} 타자기록 이동
 def redirect_hitter(user_input):
     return 'http://localhost:8080/hitter'
+
 
 # {11} 투수기록 이동
 def redirect_pitcher(user_input):
     return 'http://localhost:8080/pitcher'
 
+
 # {12} 주루기록 이동
 def redirect_runner(user_input):
     return 'http://localhost:8080/runner'
+
 
 # {13} 순위기록 이동
 def redirect_rank(user_input):
@@ -307,13 +422,17 @@ response_functions = {
     #
 }
 
+
 # 웹 페이지에서 입력을 받아 모델에서 출력한 값을 반환
 def main(user_input):
     # print(user_input)
     result = response(user_input)  # 입력받은 내용을 함수에 넣어 응답을 예측를 한다.
     return result
 
+
 # if __name__ == "__main__":
 #     text = "여기는 뭐하는 곳이야"
 #     result = main(text)
 #     print(result)
+#     손실 값 시각화
+
