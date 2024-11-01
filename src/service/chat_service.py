@@ -108,22 +108,32 @@ output_sequences = np.array(range(len(outputs)))
 # valid_output = output_sequences[training_size:]
 
 # 1. 전체 데이터의 인덱스 생성  # [0, 1, 2, 3, ... ]
-total_indices = np.arange(len(input_sequences))
+total_indices = np.arange(len(data))
 
 # 2. 랜덤으로 20%의 인덱스 선택
-test_size = int(0.2 * len(input_sequences))
+test_size = int(0.2 * len(data))
 test_indices = np.random.choice(total_indices, size=test_size, replace=False)
 
 # 3. 훈련 데이터셋 및 검증 데이터셋 생성  # np.setdiff1d: A 배열에서 B 배열의 값들을 뺀 배열을 반환
 train_indices = np.setdiff1d(total_indices, test_indices)  # 배열 내 값 == 인덱스들
 
 # 4. 훈련용 질문 및 응답
-processed_train_inputs = [input_sequences[i] for i in train_indices]
-processed_train_outputs = [output_sequences[i] for i in train_indices]
+processed_train_inputs = np.array([input_sequences[i]for i in train_indices])
+print(type(processed_train_inputs))
+print(type(processed_train_inputs[0]))
+print(processed_train_inputs[:3])
+processed_train_outputs = np.array([output_sequences[i] for i in train_indices])
+print(type(processed_train_outputs))
+print(type(processed_train_outputs[0]))
 
 # 5. 테스트용 질문 및 응답
-processed_test_inputs = [input_sequences[i] for i in test_indices]
-processed_test_outputs = [output_sequences[i] for i in test_indices]
+processed_test_inputs = np.array([input_sequences[i] for i in test_indices])
+print(type(processed_test_inputs))
+print(type(processed_test_inputs[0]))
+print(processed_test_inputs[:3])
+processed_test_outputs = np.array([output_sequences[i] for i in test_indices])
+print(type(processed_test_outputs))
+print(type(processed_test_outputs[0]))
 
 # [3] 모델 구성
 model = Sequential([
@@ -170,7 +180,7 @@ lr_scheduler = LearningRateScheduler(scheduler)
 # 학습
 batch_size = 64  # 원하는 배치 크기로 설정
 # 전체 챗봇데이터로 훈련하고 검증은 20퍼센트 샘플 추출해서 진행
-history = model.fit(processed_train_inputs, processed_train_outputs, validation_data=(processed_test_inputs, processed_test_outputs),
+history = model.fit(input_sequences, output_sequences, validation_data=(processed_test_inputs, processed_test_outputs),
                     callbacks=[checkpoint, early_stop, lr_scheduler],
                     epochs=200,
                     batch_size=batch_size)  # 배치 크기 지정
@@ -178,89 +188,89 @@ history = model.fit(processed_train_inputs, processed_train_outputs, validation_
 model.summary()
 # TODO: 응답이 같은 인덱스들이 있다는 것을 사용해서 그룹화하면 좋지 않을까?
 
-# ============ 시각화 ===============
-import matplotlib.font_manager as fm
-import seaborn as sns
-from sklearn.metrics import confusion_matrix, classification_report
-
-# 폰트 설정
-font_path = "C:/Windows/Fonts/malgun.ttf"
-font_prop = fm.FontProperties(fname=font_path)
-
-# 마이너스 기호 문제 해결하기
-plt.rcParams['axes.unicode_minus'] = False
-plt.rc('font', family=font_prop.get_name())
-
-
-def visualize_model_performance(train_output, output_classes):
-    # Confusion Matrix 혼동 매트릭스
-    """
-                        예측된 긍정 (Positive)	예측된 부정 (Negative)
-    실제 긍정 (Positive)	    진양성 (TP)	            거짓음성 (FN)
-    실제 부정 (Negative)	    거짓양성 (FP)	        진음성 (TN)
-    """
-    print("CM")
-    cm = confusion_matrix(train_output, output_classes)
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=np.arange(num_classes), yticklabels=np.arange(num_classes))
-    plt.xlabel('예측된 클래스')
-    plt.ylabel('실제 클래스')
-    plt.title('혼동 행렬')
-    plt.show()
-
-    # Classification Report
-    report = classification_report(train_output, output_classes)
-    print("분류 보고서:\n", report)
-
-    # 실제 값과 예측 값의 산점도
-    print("Scatter")
-    plt.figure(figsize=(10, 6))
-    plt.scatter(train_output, output_classes, alpha=0.6)
-    plt.plot([train_output.min(), train_output.max()], [train_output.min(), train_output.max()], 'k--', lw=2)  # y=x 선
-    plt.xlabel('실제 값')
-    plt.ylabel('예측 값')
-    plt.title('실제 값 vs 예측 값')
-    plt.grid(True)
-    plt.show()
-
-    # 예측 확률 분포 히스토그램
-    print("histogram")
-    plt.figure(figsize=(10, 6))
-    plt.hist(output_classes, bins=30, alpha=0.6, label='예측된 클래스', color='orange')
-    plt.hist(train_output, bins=30, alpha=0.6, label='실제 클래스', color='blue')
-    plt.xlabel('클래스 레이블')
-    plt.ylabel('빈도')
-    plt.title('실제 클래스 vs 예측 클래스 분포')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-
-# 예시로 모델 예측 수행 후 시각화
-output_predict = model.predict(train_input_seq)
-output_classes = np.argmax(output_predict, axis=1)  # 예측 클래스
-print("visualizing")
-print("output_classes: ", output_classes.shape)
-print("train_output: ", train_output.shape)
-print("Unique classes in output_classes:", np.unique(output_classes))
-print("Unique classes in train_output:", np.unique(train_output))
-visualize_model_performance(train_output, output_classes)
-
-
-# 손실 함수 시각화
-def plot_loss(history):
-    plt.figure(figsize=(10, 6))
-    plt.plot(history.history['loss'], label='Train Loss')
-    plt.plot(history.history['val_loss'], label='Validation Loss')
-    plt.title('Loss over Epochs')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.grid()
-    plt.show()
-
-
-plot_loss(history)
+# # ============ 시각화 ===============
+# import matplotlib.font_manager as fm
+# import seaborn as sns
+# from sklearn.metrics import confusion_matrix, classification_report
+#
+# # 폰트 설정
+# font_path = "C:/Windows/Fonts/malgun.ttf"
+# font_prop = fm.FontProperties(fname=font_path)
+#
+# # 마이너스 기호 문제 해결하기
+# plt.rcParams['axes.unicode_minus'] = False
+# plt.rc('font', family=font_prop.get_name())
+#
+#
+# def visualize_model_performance(train_output, output_classes):
+#     # Confusion Matrix 혼동 매트릭스
+#     """
+#                         예측된 긍정 (Positive)	예측된 부정 (Negative)
+#     실제 긍정 (Positive)	    진양성 (TP)	            거짓음성 (FN)
+#     실제 부정 (Negative)	    거짓양성 (FP)	        진음성 (TN)
+#     """
+#     print("CM")
+#     cm = confusion_matrix(train_output, output_classes)
+#     plt.figure(figsize=(10, 8))
+#     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=np.arange(num_classes), yticklabels=np.arange(num_classes))
+#     plt.xlabel('예측된 클래스')
+#     plt.ylabel('실제 클래스')
+#     plt.title('혼동 행렬')
+#     plt.show()
+#
+#     # Classification Report
+#     report = classification_report(train_output, output_classes)
+#     print("분류 보고서:\n", report)
+#
+#     # 실제 값과 예측 값의 산점도
+#     print("Scatter")
+#     plt.figure(figsize=(10, 6))
+#     plt.scatter(train_output, output_classes, alpha=0.6)
+#     plt.plot([train_output.min(), train_output.max()], [train_output.min(), train_output.max()], 'k--', lw=2)  # y=x 선
+#     plt.xlabel('실제 값')
+#     plt.ylabel('예측 값')
+#     plt.title('실제 값 vs 예측 값')
+#     plt.grid(True)
+#     plt.show()
+#
+#     # 예측 확률 분포 히스토그램
+#     print("histogram")
+#     plt.figure(figsize=(10, 6))
+#     plt.hist(output_classes, bins=30, alpha=0.6, label='예측된 클래스', color='orange')
+#     plt.hist(train_output, bins=30, alpha=0.6, label='실제 클래스', color='blue')
+#     plt.xlabel('클래스 레이블')
+#     plt.ylabel('빈도')
+#     plt.title('실제 클래스 vs 예측 클래스 분포')
+#     plt.legend()
+#     plt.grid(True)
+#     plt.show()
+#
+#
+# # 예시로 모델 예측 수행 후 시각화
+# output_predict = model.predict(train_input_seq)
+# output_classes = np.argmax(output_predict, axis=1)  # 예측 클래스
+# print("visualizing")
+# print("output_classes: ", output_classes.shape)
+# print("train_output: ", train_output.shape)
+# print("Unique classes in output_classes:", np.unique(output_classes))
+# print("Unique classes in train_output:", np.unique(train_output))
+# visualize_model_performance(train_output, output_classes)
+#
+#
+# # 손실 함수 시각화
+# def plot_loss(history):
+#     plt.figure(figsize=(10, 6))
+#     plt.plot(history.history['loss'], label='Train Loss')
+#     plt.plot(history.history['val_loss'], label='Validation Loss')
+#     plt.title('Loss over Epochs')
+#     plt.xlabel('Epochs')
+#     plt.ylabel('Loss')
+#     plt.legend()
+#     plt.grid()
+#     plt.show()
+#
+#
+# plot_loss(history)
 
 # =========== 시각화 ================
 
