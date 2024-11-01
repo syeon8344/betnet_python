@@ -38,6 +38,29 @@ data = pd.read_csv("service/챗봇데이터.csv", header=0)
 stopwords = pd.read_csv("service/stopwords-ko.txt", encoding="utf-8", header=None)[0].tolist()
 
 
+# ======= 시각화 테스트 ===========
+# 인덱스 구간마다 같은 값을 가지는 CSV이므로 응답과 예측값을 실제 값으로 나타낼 수 있지 않을까?
+# 특정 열의 이름 (예: 'column_name')을 설정
+column_name = 'your_column_name'
+
+# 같은 값의 연속 구간 찾기
+print(type(data['A']))
+print(data['A'].dtype)
+data["group"] = (data["A"] != data["A"].shift()).cumsum()
+print(data["group"])
+
+result = data.groupby('group')['A'].first().reset_index()
+print("\n각 그룹의 첫 번째 값:")
+print(result)
+
+
+# 그룹화하여 각 구간의 첫 번째 값과 인덱스 리스트 가져오기
+result = data.groupby('group').agg(
+    first_value=('A', 'first'),  # 각 구간의 첫 번째 값
+    index_list=('A', lambda x: list(data.index[x.index]))  # 각 구간에 해당하는 인덱스 리스트
+).reset_index(drop=True)
+
+print(result)
 # print(stopwords)
 
 
@@ -180,6 +203,15 @@ lr_scheduler = LearningRateScheduler(scheduler)
 # 학습
 batch_size = 64  # 원하는 배치 크기로 설정
 # 전체 챗봇데이터로 훈련하고 검증은 20퍼센트 샘플 추출해서 진행
+"""
+input_sequences: 패딩까지 완료된 전체 질문 시퀀스
+output_sequences: 인덱스 번호 = 값인 배열 [0, 1, 2, ... ] 
+-> 예측된 값은 1163칸을 갖는 배열, 그 중 가장 큰 값이 예측된 인덱스 값 -> CSV의 인덱스를 참고하면 해당 예측 답 해석 가능.
+validation_data=(
+    processed_test_inputs,  # 질문-응답 연결을 깨지 않기 위해 인덱스 수준에서 랜덤 샘플링해서 검증 질문-응답 셋을 만들었다.
+    processed_test_outputs
+    )
+"""
 history = model.fit(input_sequences, output_sequences, validation_data=(processed_test_inputs, processed_test_outputs),
                     callbacks=[checkpoint, early_stop, lr_scheduler],
                     epochs=200,
@@ -282,6 +314,7 @@ def response(user_input):
     text = pad_sequences(text, maxlen=max_sequence_length)
     predict = model.predict(text)  # 3. 예측
     print("predict: ", predict)
+    print(predict.shape())
     max_index = np.argmax(predict)  # 4. 결과 # 가장 높은 확률의 인덱스 찾기
     # confidence = predict[0][max_index]  # 예측 확률
     #
